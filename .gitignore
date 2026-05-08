@@ -35,3 +35,5 @@ Thumbs.db
 venv/
 env/
 .venv/
+celestrak_poll_cache.json
+CLAUDE.md
