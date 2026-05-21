@@ -36,7 +36,7 @@ A lightweight orbital monitoring script supporting dual data sources (Space-Trac
 Make sure you have Python installed, then run in the project directory:
 
 ```bash
-pip install requests python-dotenv
+pip install requests python-dotenv pyyaml
 ```
 
 ---
@@ -164,7 +164,38 @@ Successful execution shows output similar to:
 
 ---
 
-## Configuration Details
+### 6. Docker Deployment
+
+Build and run with Docker Compose (configuration and data are mounted from the host):
+
+```bash
+# Build and start
+docker compose up -d
+
+# View logs
+docker compose logs -f
+
+# Stop
+docker compose down
+```
+
+**File layout on host**:
+```
+project/
+├── config.yaml      # Configuration (mount)
+├── .env             # Credentials (optional, uncomment in compose for Space-Track)
+└── data/            # Runtime data (persistent volume)
+    ├── tle_data.jsonl
+    ├── tle_log.jsonl
+    ├── tle_cache.json
+    ├── decay_state.json
+    └── celestrak_poll_cache.json
+```
+
+> Configuration changes on the host take effect after container restart (`docker compose restart`).
+> No need to rebuild the image for configuration changes.
+
+---
 
 ### Business Configuration (config.yaml)
 
@@ -557,7 +588,37 @@ python spacetrack_monitor.py
 
 ---
 
-## 配置说明
+### 6. Docker 部署
+
+使用 Docker Compose 构建并运行（配置和数据从宿主机挂载，镜像不含配置）：
+
+```bash
+# 构建并启动
+docker compose up -d
+
+# 查看日志
+docker compose logs -f
+
+# 停止
+docker compose down
+```
+
+**宿主机文件布局**：
+```
+project/
+├── config.yaml      # 配置文件（挂载）
+├── .env             # 凭据文件（可选，Space-Track 模式需在 compose 中取消注释）
+└── data/            # 运行数据（持久化卷）
+    ├── tle_data.jsonl
+    ├── tle_log.jsonl
+    ├── tle_cache.json
+    ├── decay_state.json
+    └── celestrak_poll_cache.json
+```
+
+> 修改宿主机 `config.yaml` 后重启容器即可生效：`docker compose restart`，无需重建镜像。
+
+---
 
 ### 业务配置（config.yaml）
 
