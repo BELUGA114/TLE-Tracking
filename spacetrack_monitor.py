@@ -244,8 +244,10 @@ class LocalCache:
             # 加载待处理标记（用于断点恢复）
             self._data["pending"] = raw.get("pending", False)
             log.info("已加载本地缓存：%s", self._path)
+        except FileNotFoundError:
+            log.debug("缓存文件 %s 不存在，将从头开始", self._path)
         except (OSError, json.JSONDecodeError, ValueError) as e:
-            log.warning("缓存加载失败（将从头开始）: %s", e)
+            log.warning("缓存文件损坏或读取失败（将从头开始）: %s", e)
 
     def _save(self) -> None:
         """将缓存数据保存到 JSON 文件（覆盖模式）"""
