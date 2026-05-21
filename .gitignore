@@ -56,3 +56,5 @@ tle_cache.json
 tle_data.jsonl
 tle_data.jsonl.bak
 celestrak_poll_cache.json
+decay_state.json
+data/

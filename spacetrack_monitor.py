@@ -53,27 +53,36 @@ PASSWORD = os.getenv("SPACETRACK_PASS")
 
 # 业务配置（来自 config.yaml）
 
-def _load_config(path: str = "config.yaml") -> dict:
-    """加载 YAML 配置文件,文件不存在时返回空 dict(全部使用默认值)"""
-    # 支持从任意目录运行脚本,自动定位到脚本所在目录的 config.yaml
-    if not os.path.isabs(path):
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        path = os.path.join(script_dir, path)
-    
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            cfg = yaml.safe_load(f) or {}
-        logging.getLogger(__name__).debug("已加载配置文件:%s", path)
-        return cfg
-    except FileNotFoundError:
-        # 配置文件不存在时全部使用默认值,方便快速测试
-        logging.getLogger(__name__).warning(
-            "未找到 %s,所有参数使用默认值", path
-        )
-        return {}
-    except (yaml.YAMLError, OSError) as e:
-        logging.getLogger(__name__).error("配置文件加载失败: %s", e)
-        raise SystemExit(1)
+def _load_config() -> dict:
+    """加载 YAML 配置文件，文件不存在时返回空 dict（全部使用默认值）。
+
+    查找优先级：
+      1. CONFIG_PATH 环境变量指定的完整路径
+      2. 当前工作目录下的 config.yaml（Docker 挂载场景）
+      3. 脚本所在目录下的 config.yaml（本地开发场景）
+    """
+    candidates = []
+    env_path = os.environ.get("CONFIG_PATH")
+    if env_path:
+        candidates.append(("CONFIG_PATH", env_path))
+    candidates.append(("CWD", os.path.join(os.getcwd(), "config.yaml")))
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    candidates.append(("script dir", os.path.join(script_dir, "config.yaml")))
+
+    for source, path in candidates:
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                cfg = yaml.safe_load(f) or {}
+            logging.getLogger(__name__).debug("已加载配置文件(%s):%s", source, path)
+            return cfg
+        except FileNotFoundError:
+            continue
+        except (yaml.YAMLError, OSError) as e:
+            logging.getLogger(__name__).error("配置文件加载失败 %s: %s", path, e)
+            raise SystemExit(1)
+
+    logging.getLogger(__name__).warning("未找到配置文件，所有参数使用默认值")
+    return {}
 
 _cfg = _load_config()
 
@@ -82,9 +91,17 @@ _cfg = _load_config()
 NORAD_IDS: list[int] = _cfg.get("targets", {}).get("norad_ids", [25544])
 SCHEDULED_MINUTE: int = _cfg.get("schedule", {}).get("minute", 12)  # 每小时请求的分钟数（建议 12 或 48，避开整点/半点高峰）
 # 文件路径
-DATA_FILE: str = _cfg.get("files", {}).get("data_file", "tle_data.jsonl")    # 轨道数据文件（带轮转保护）
-CACHE_FILE: str = _cfg.get("files", {}).get("cache",    "tle_cache.json")   # 临时缓存，自动覆盖
-LOG_FILE: str = _cfg.get("files", {}).get("run_log",  "tle_log.jsonl")  # 运行日志（带轮转保护）
+DATA_DIR: str = os.environ.get("DATA_DIR") or _cfg.get("files", {}).get("data_dir") or "."  # 数据文件根目录
+
+def _data_path(filename: str) -> str:
+    """返回数据目录下的完整路径，自动创建目录"""
+    path = os.path.join(DATA_DIR, filename)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    return path
+
+DATA_FILE: str = _data_path(_cfg.get("files", {}).get("data_file", "tle_data.jsonl"))    # 轨道数据文件（带轮转保护）
+CACHE_FILE: str = _data_path(_cfg.get("files", {}).get("cache",    "tle_cache.json"))   # 临时缓存，自动覆盖
+LOG_FILE: str = _data_path(_cfg.get("files", {}).get("run_log",  "tle_log.jsonl"))  # 运行日志（带轮转保护）
 # 预警阈值
 REENTRY_WARNING_KM: int  = _cfg.get("alerts", {}).get("reentry_warning_km",   200)  # 近地点低于此值时发出再入预警
 ONLY_PRINT_ON_UPDATE: bool = _cfg.get("alerts", {}).get("only_print_on_update", True)  # 仅在 TLE 变化时打印输出
@@ -1084,7 +1101,7 @@ def run_celestrak_cycle(
 
 # ── 衰降追踪集成 ────────────────────────────────────────────────────────────────
 
-DECAY_STATE_FILE = "decay_state.json"
+DECAY_STATE_FILE = _data_path("decay_state.json")
 
 def _load_decay_state() -> dict[int, str]:
     """加载上次已知的衰降阶段，用于避免重复告警"""
@@ -1310,7 +1327,7 @@ def main() -> None:
         write_log_message(f"以 CelesTrak 为主源启动，轮询间隔 {CELESTRAK_INTERVAL // 60} 分钟")
         
         # 加载 CelesTrak 轮询时间戳缓存（用于速率保护）
-        celestrak_cache_path = "celestrak_poll_cache.json"
+        celestrak_cache_path = _data_path("celestrak_poll_cache.json")
         celestrak_last_poll: Optional[float] = None
         try:
             if os.path.exists(celestrak_cache_path):
