@@ -1114,7 +1114,7 @@ def main() -> None:
         log.error("data_source.primary=celestrak，但 celestrak_fetcher.py 未找到，请确认文件存在")
         raise SystemExit(1)
 
-    log.info("TEL-Tracking 轨道监控  主源: %s  备源: %s", PRIMARY_SOURCE, FALLBACK_SOURCE)
+    log.info("TLE-Tracking 轨道监控  主源: %s  备源: %s", PRIMARY_SOURCE, FALLBACK_SOURCE)
     log.info("目标: %s", ", ".join(str(i) for i in NORAD_IDS))
 
     if XPROP_ACTIVE:
