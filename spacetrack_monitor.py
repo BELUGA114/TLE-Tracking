@@ -806,7 +806,7 @@ def print_orbit(orbit: dict, prev: Optional[dict]) -> None:
     peri, apo = orbit["periapsis"], orbit["apoapsis"]
     delta = ""
     if prev:
-        delta = f"  （近地点 {peri - prev['periapsis']:+.1f} km，远地点 {apo - prev['apoapsis']:+.1f} km）"
+        delta = f"  （近地点变化 {peri - prev['periapsis']:+.1f} km，远地点变化 {apo - prev['apoapsis']:+.1f} km）"
     log.info(f"""
   ===============================================
     {orbit['name']:<20} NORAD {orbit['norad']}
