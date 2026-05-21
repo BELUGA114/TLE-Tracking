@@ -1,4 +1,4 @@
-# TEL-Tracking
+# TLE-Tracking
 
 <a id="language-selector"></a>
 **Language / 语言**: [English](#english-version) | [中文](#chinese-version)
@@ -157,7 +157,7 @@ On first run, the script will:
 Successful execution shows output similar to:
 
 ```
-2026-05-02 10:00:00 TEL-Tracking Orbital Monitor  Primary: celestrak  Fallback: spacetrack
+2026-05-02 10:00:00 TLE-Tracking Orbital Monitor  Primary: celestrak  Fallback: spacetrack
 2026-05-02 10:00:00 Target: 25544
 2026-05-02 10:00:00 Schedule: Every 2 hours (CelesTrak) | Reentry warning: <200 km
 ```
@@ -309,7 +309,7 @@ This is **expected normal behavior**, caused by the script's strict adherence to
 Precise orbital prediction for this project is provided by external **xpropagator** service, which is based on
 Space-Track.org officially released SGP4/SGP4-XP dynamic libraries, but **xpropagator itself also does not integrate these libraries**.
 
-TEL-Tracking only calls external xpropagator service via network gRPC, the project itself contains no SGP4 source code or compiled artifacts
+TLE-Tracking only calls external xpropagator service via network gRPC, the project itself contains no SGP4 source code or compiled artifacts
 
 To use high-precision residual analysis functionality, please deploy xpropagator service yourself.
 
@@ -427,7 +427,7 @@ https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=json
 
 <a id="chinese-version"></a>
 
-# TEL-Tracking (中文版)
+# TLE-Tracking (中文版)
 
 > **注意**: 这是中文版本。如需英文版本，请查看上方的 [English Version](#english-version)。
 
@@ -581,7 +581,7 @@ python spacetrack_monitor.py
 看到类似以下输出表示运行成功：
 
 ```
-2026-05-02 10:00:00 TEL-Tracking 轨道监控  主源: celestrak  备源: spacetrack
+2026-05-02 10:00:00 TLE-Tracking 轨道监控  主源: celestrak  备源: spacetrack
 2026-05-02 10:00:00 目标: 25544
 2026-05-02 10:00:00 调度: 每 2 小时 (CelesTrak) | 再入预警: <200 km
 ```
@@ -732,7 +732,7 @@ data_source:
 本项目的精密轨道预报由外部 **xpropagator** 服务提供，该服务基于
 Space-Track.org 官方发布的 SGP4/SGP4-XP 动态库，但 **xpropagator 本身同样不集成这些库**。
 
-TEL-Tracking 仅通过网络 gRPC 调用外部 xpropagator 服务，项目本身不含任何 SGP4 源码或编译产物
+TLE-Tracking 仅通过网络 gRPC 调用外部 xpropagator 服务，项目本身不含任何 SGP4 源码或编译产物
 
 如需使用高精度残差分析功能，请自行部署 xpropagator 服务。
 
