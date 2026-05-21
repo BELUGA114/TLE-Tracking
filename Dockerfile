@@ -11,7 +11,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # 仅复制代码，不含 config.yaml / .env / 数据文件
 COPY spacetrack_monitor.py .
-COPY decay_tracker.py .
 COPY celestrak_fetcher.py .
 COPY xpropagator_client.py .
 COPY api/ api/
