@@ -68,6 +68,23 @@ XPROP_PORT: int   = 50051
 _CONNECT_TIMEOUT: float = 3.0    # gRPC 连接超时（秒）
 _CALL_TIMEOUT:    float = 10.0   # 单次 RPC 调用超时（秒）
 
+# 尝试从 config.yaml 加载 xpropagator 地址（若存在则覆盖默认值）
+try:
+    import yaml as _yaml
+    import os as _os
+    _script_dir = _os.path.dirname(_os.path.abspath(__file__))
+    _cfg_path = _os.path.join(_script_dir, "config.yaml")
+    if _os.path.exists(_cfg_path):
+        with open(_cfg_path, "r", encoding="utf-8") as _f:
+            _cfg_data = _yaml.safe_load(_f) or {}
+        _xprop_cfg = _cfg_data.get("xpropagator", {})
+        if _xprop_cfg.get("host"):
+            XPROP_HOST = str(_xprop_cfg["host"])
+        if _xprop_cfg.get("port"):
+            XPROP_PORT = int(_xprop_cfg["port"])
+except Exception:
+    pass
+
 
 class StateVector(NamedTuple):
     """ECI 笛卡尔状态向量（km, km/s）"""
