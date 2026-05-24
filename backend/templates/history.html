@@ -94,6 +94,10 @@
                                     <span class="detail-label">历元时圈数</span>
                                     <span class="detail-value">{{ r.REV_AT_EPOCH if r.REV_AT_EPOCH is not none and r.REV_AT_EPOCH != "" else "-" }}</span>
                                 </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">保密等级</span>
+                                    <span class="detail-value">{{ (r.CLASSIFICATION_TYPE or "-") + "（" + {"U":"公开","C":"保密","S":"机密"}.get(r.CLASSIFICATION_TYPE, "未知") + "）" if r.CLASSIFICATION_TYPE in ("U","C","S") else (r.CLASSIFICATION_TYPE or "-") }}</span>
+                                </div>
                                 <div class="detail-item" style="grid-column:span 3;">
                                     <span class="detail-label">TLE 行1</span>
                                     <span class="detail-value" style="font-family:monospace;font-size:0.75rem;word-break:break-all;">{{ r.tle1 or "-" }}</span>
