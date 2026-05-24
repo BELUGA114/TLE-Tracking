@@ -99,7 +99,7 @@
                             </div>
                             <div class="detail-item">
                                 <span class="detail-label">保密等级</span>
-                                <span class="detail-value">{{ sat.CLASSIFICATION_TYPE or "-" }}</span>
+                                <span class="detail-value">{{ (sat.CLASSIFICATION_TYPE or "-") + "（" + {"U":"公开","C":"保密","S":"机密"}.get(sat.CLASSIFICATION_TYPE, "未知") + "）" if sat.CLASSIFICATION_TYPE in ("U","C","S") else (sat.CLASSIFICATION_TYPE or "-") }}</span>
                             </div>
                             <div class="detail-item">
                                 <span class="detail-label">历元</span>
