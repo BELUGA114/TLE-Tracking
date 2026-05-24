@@ -10,15 +10,18 @@ router = APIRouter(prefix="/api/satellites", tags=["satellites"])
 templates = Jinja2Templates(directory="backend/templates")
 
 
+def _merge_raw(sats: list[dict]) -> None:
+    """将 _raw_elements 中的字段合并到顶层"""
+    for sat in sats:
+        if raw := sat.pop("_raw_elements", None):
+            sat.update(raw)
+
+
 @router.get("")
 async def get_satellites():
     """返回所有卫星的当前轨道数据（JSON）"""
     sats = load_latest_satellites()
-    for sat in sats:
-        # 移除冗余的原始根数
-        sat.pop("_raw_elements", None)
-        sat.pop("tle1", None)
-        sat.pop("tle2", None)
+    _merge_raw(sats)
     return {"satellites": sats, "total": len(sats)}
 
 
@@ -26,11 +29,9 @@ async def get_satellites():
 async def get_satellite(norad_id: int):
     """返回单颗卫星的最新轨道数据"""
     sats = load_latest_satellites()
+    _merge_raw(sats)
     for sat in sats:
         if sat.get("norad") == norad_id:
-            sat.pop("_raw_elements", None)
-            sat.pop("tle1", None)
-            sat.pop("tle2", None)
             return sat
     return {"error": f"NORAD ID {norad_id} not found"}, 404
 
@@ -39,10 +40,7 @@ async def get_satellite(norad_id: int):
 async def satellites_page(request: Request):
     """卫星总览页面"""
     sats = load_latest_satellites()
-    for sat in sats:
-        sat.pop("_raw_elements", None)
-        sat.pop("tle1", None)
-        sat.pop("tle2", None)
+    _merge_raw(sats)
     return templates.TemplateResponse(
         request,
         "satellites.html",

@@ -63,9 +63,8 @@ async def dashboard(request: Request):
             pass
 
     for sat in sats:
-        sat.pop("_raw_elements", None)
-        sat.pop("tle1", None)
-        sat.pop("tle2", None)
+        if raw := sat.pop("_raw_elements", None):
+            sat.update(raw)
 
     return templates.TemplateResponse(
         request,
