@@ -4,49 +4,234 @@
 
 <h2 class="page-title">TLE 变化历史</h2>
 
-<div class="card" style="padding: 0;">
-    <div class="table-wrap">
-        <table>
-            <thead>
-                <tr>
-                    <th>时间</th>
-                    <th>NORAD ID</th>
-                    <th>名称</th>
-                    <th>类型</th>
-                    <th>来源</th>
-                    <th>近地点 (km)</th>
-                    <th>远地点 (km)</th>
-                    <th>Hash</th>
-                </tr>
-            </thead>
-            <tbody>
-            {% for r in records %}
-                <tr>
-                    <td style="white-space:nowrap;">{{ (r.timestamp or "")[:19] }}</td>
-                    <td><strong>{{ r.norad }}</strong></td>
-                    <td>{{ r.name }}</td>
-                    <td>
-                        {% if r.change_type == "initial" %}
-                            <span class="tag tag-initial">初始</span>
-                        {% elif r.change_type == "correction" %}
-                            <span class="tag tag-correction">修正</span>
-                        {% elif r.change_type == "maneuver" %}
-                            <span class="tag tag-maneuver">机动</span>
-                        {% else %}
-                            <span class="tag">{{ r.change_type }}</span>
-                        {% endif %}
-                    </td>
-                    <td>{{ r.source or "-" }}</td>
-                    <td>{{ "%.1f"|format(r.periapsis) if r.periapsis else "-" }}</td>
-                    <td>{{ "%.1f"|format(r.apoapsis) if r.apoapsis else "-" }}</td>
-                    <td style="font-family:monospace;font-size:0.8rem;">{{ (r.tle_hash or "")[:12] }}</td>
-                </tr>
-            {% else %}
-                <tr><td colspan="8" style="text-align:center;color:#64748b;">暂无变化记录</td></tr>
-            {% endfor %}
-            </tbody>
-        </table>
+{% if groups %}
+{% for g in groups %}
+<div class="card satellite-group">
+    <div class="group-header" onclick="toggleGroup(this)">
+        <span class="group-title">
+            <span class="group-icon">▶</span>
+            <strong>{{ g.norad }}</strong> — {{ g.name }}
+        </span>
+        <span class="group-badge">{{ g.records|length }} 条记录</span>
+    </div>
+    <div class="group-body">
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:40px"></th>
+                        <th>历元</th>
+                        <th>类型</th>
+                        <th>来源</th>
+                        <th>近地点 (km)</th>
+                        <th>远地点 (km)</th>
+                        <th>倾角 (°)</th>
+                        <th>偏心率</th>
+                        <th>周期 (min)</th>
+                        <th>Hash</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for r in g.records %}
+                    <tr class="record-row" onclick="toggleDetail(this)">
+                        <td style="cursor:pointer;text-align:center;user-select:none;">▶</td>
+                        <td style="white-space:nowrap;">{{ (r.epoch or "")[:19] }}</td>
+                        <td>
+                            {% if r.change_type == "initial" %}
+                                <span class="tag tag-initial">初始</span>
+                            {% elif r.change_type == "correction" %}
+                                <span class="tag tag-correction">修正</span>
+                            {% elif r.change_type == "maneuver" %}
+                                <span class="tag tag-maneuver">机动</span>
+                            {% else %}
+                                <span class="tag">{{ r.change_type }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ r.source or "-" }}</td>
+                        <td>{{ "%.1f"|format(r.periapsis) if r.periapsis else "-" }}</td>
+                        <td>{{ "%.1f"|format(r.apoapsis) if r.apoapsis else "-" }}</td>
+                        <td>{{ "%.2f"|format(r.incl) if r.incl else "-" }}</td>
+                        <td>{{ "%.5f"|format(r.ecc) if r.ecc else "-" }}</td>
+                        <td>{{ "%.3f"|format(r.period) if r.period else "-" }}</td>
+                        <td style="font-family:monospace;font-size:0.8rem;">{{ (r.tle_hash or "")[:12] }}</td>
+                    </tr>
+                    <tr class="detail-row" style="display:none;">
+                        <td colspan="10">
+                            <div class="detail-grid">
+                                <div class="detail-item">
+                                    <span class="detail-label">接收时间</span>
+                                    <span class="detail-value">{{ (r.timestamp or "")[:19] }}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">升交点赤经 (°)</span>
+                                    <span class="detail-value">{{ "%.4f"|format(r.RA_OF_ASC_NODE) if r.RA_OF_ASC_NODE is number else "-" }}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">近地点辐角 (°)</span>
+                                    <span class="detail-value">{{ "%.4f"|format(r.ARG_OF_PERICENTER) if r.ARG_OF_PERICENTER is number else "-" }}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">国际编号</span>
+                                    <span class="detail-value">{{ r.intl_id or "-" }}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">平近点角 (°)</span>
+                                    <span class="detail-value">{{ "%.4f"|format(r.MEAN_ANOMALY) if r.MEAN_ANOMALY is number else "-" }}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">平运动 (圈/天)</span>
+                                    <span class="detail-value">{{ "%.6f"|format(r.MEAN_MOTION) if r.MEAN_MOTION is number else "-" }}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">B* 阻力系数</span>
+                                    <span class="detail-value">{{ "%.4e"|format(r.bstar) if r.bstar is number else (r.bstar or "-") }}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">平运动一阶导</span>
+                                    <span class="detail-value">{{ "%.4e"|format(r.MEAN_MOTION_DOT) if r.MEAN_MOTION_DOT is number else "-" }}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">历元时圈数</span>
+                                    <span class="detail-value">{{ r.REV_AT_EPOCH if r.REV_AT_EPOCH is not none and r.REV_AT_EPOCH != "" else "-" }}</span>
+                                </div>
+                                <div class="detail-item" style="grid-column:span 3;">
+                                    <span class="detail-label">TLE 行1</span>
+                                    <span class="detail-value" style="font-family:monospace;font-size:0.75rem;word-break:break-all;">{{ r.tle1 or "-" }}</span>
+                                </div>
+                                <div class="detail-item" style="grid-column:span 3;">
+                                    <span class="detail-label">TLE 行2</span>
+                                    <span class="detail-value" style="font-family:monospace;font-size:0.75rem;word-break:break-all;">{{ r.tle2 or "-" }}</span>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
+{% endfor %}
+{% else %}
+<div class="card" style="text-align:center;padding:3rem;color:#64748b;">
+    <p>暂无变化记录</p>
+</div>
+{% endif %}
 
+<style>
+.satellite-group {
+    margin-bottom: 1rem;
+    padding: 0;
+    overflow: hidden;
+}
+.group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: #1e293b;
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 1px solid #334155;
+}
+.group-header:hover {
+    background: #273548;
+}
+.group-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.group-icon {
+    font-size: 0.75rem;
+    transition: transform 0.2s;
+    color: #64748b;
+}
+.group-header.collapsed .group-icon {
+    transform: rotate(-90deg);
+}
+.group-body {
+    overflow-x: auto;
+}
+.group-body table {
+    border: none;
+    margin: 0;
+}
+.group-body thead th {
+    background: #0f172a;
+    border-bottom: 1px solid #334155;
+    font-size: 0.75rem;
+}
+.group-badge {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    background: #334155;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+}
+
+.record-row {
+    cursor: pointer;
+}
+.record-row:hover td {
+    background: rgba(148,163,184,0.05);
+}
+.record-row td:first-child {
+    font-size: 0.7rem;
+    color: #64748b;
+    transition: transform 0.15s;
+}
+.detail-row td {
+    padding: 0 !important;
+}
+.detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem 0.75rem 3rem;
+    background: #1e293b;
+    border-bottom: 1px solid #334155;
+}
+.detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+.detail-label {
+    font-size: 0.7rem;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.detail-value {
+    font-size: 0.85rem;
+    color: #e2e8f0;
+}
+</style>
+
+<script>
+// 卫星组折叠
+function toggleGroup(el) {
+    el.classList.toggle("collapsed");
+    const body = el.nextElementSibling;
+    body.style.display = body.style.display === "none" ? "" : "none";
+}
+
+// 行展开详情
+function toggleDetail(row) {
+    const detail = row.nextElementSibling;
+    if (!detail || !detail.classList.contains("detail-row")) return;
+    const isHidden = detail.style.display === "none" || !detail.style.display;
+    detail.style.display = isHidden ? "table-row" : "none";
+    const arrow = row.querySelector("td:first-child");
+    if (arrow) arrow.textContent = isHidden ? "▼" : "▶";
+}
+
+// 默认折叠所有卫星组标题
+document.addEventListener("DOMContentLoaded", function() {
+    document.querySelectorAll(".group-header:first-child").forEach(function(h) {
+        // 展开第一个组，折叠其余
+    });
+});
+</script>
 {% endblock %}
