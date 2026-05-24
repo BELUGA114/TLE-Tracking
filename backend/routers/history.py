@@ -42,24 +42,21 @@ async def history_page(request: Request):
     records = load_change_history(limit=100)
     _merge_raw(records)
 
-    # 按 norad id 分组，每个卫星下按时间升序排列
-    groups: dict[int, dict] = {}
+    # 按历元降序排列（最新在前）
+    records.sort(key=lambda r: r.get("epoch", ""), reverse=True)
+
+    # 提取卫星列表用于筛选器
+    seen: set[int] = set()
+    satellites: list[dict] = []
     for r in records:
         nid = r.get("norad")
-        if nid is None:
-            continue
-        if nid not in groups:
-            groups[nid] = {"norad": nid, "name": r.get("name", "TBA"), "records": []}
-        groups[nid]["records"].append(r)
-
-    for g in groups.values():
-        g["records"].sort(key=lambda x: x.get("epoch", ""))
-
-    # 按最新记录时间降序排列分组
-    grouped = sorted(groups.values(), key=lambda g: g["records"][-1].get("epoch", ""), reverse=True)
+        if nid is not None and nid not in seen:
+            seen.add(nid)
+            satellites.append({"norad": nid, "name": r.get("name", "TBA")})
+    satellites.sort(key=lambda s: s["norad"])
 
     return templates.TemplateResponse(
         request,
         "history.html",
-        {"groups": grouped},
+        {"records": records, "satellites": satellites, "total": len(records), "active_page": "history"},
     )
