@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}仪表盘 - TLE-Tracking{% endblock %}
+{% block content %}
+
+<h2 class="page-title">仪表盘</h2>
+
+<!-- 概览卡片 -->
+<div class="cards cards-2">
+    <div class="card">
+        <h3>监控目标</h3>
+        <div class="value">{{ satellites|length }}</div>
+        <div class="sub">颗卫星</div>
+    </div>
+    <div class="card">
+        <h3>已有数据</h3>
+        <div class="value">{{ total_records }}</div>
+        <div class="sub">条 TLE 记录</div>
+    </div>
+</div>
+
+<!-- 卫星列表 -->
+<div class="card" style="padding: 0;">
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>NORAD ID</th>
+                    <th>名称</th>
+                    <th>近地点 (km)</th>
+                    <th>远地点 (km)</th>
+                    <th>倾角 (°)</th>
+                    <th>偏心率</th>
+                    <th>周期 (min)</th>
+                    <th>最后变化</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for sat in satellites %}
+                <tr>
+                    <td><strong>{{ sat.norad }}</strong></td>
+                    <td>{{ sat.name }}</td>
+                    <td>{{ "%.1f"|format(sat.periapsis) }}</td>
+                    <td>{{ "%.1f"|format(sat.apoapsis) }}</td>
+                    <td>{{ "%.2f"|format(sat.incl) }}</td>
+                    <td>{{ "%.5f"|format(sat.ecc) }}</td>
+                    <td>{{ "%.3f"|format(sat.period) }}</td>
+                    <td>
+                        {% if sat.change_type == "initial" %}
+                            <span class="tag tag-initial">初始</span>
+                        {% elif sat.change_type == "correction" %}
+                            <span class="tag tag-correction">修正</span>
+                        {% elif sat.change_type == "maneuver" %}
+                            <span class="tag tag-maneuver">机动</span>
+                        {% else %}
+                            <span class="tag">{{ sat.change_type }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% else %}
+                <tr><td colspan="8" style="text-align:center;color:#64748b;">暂无数据</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}
