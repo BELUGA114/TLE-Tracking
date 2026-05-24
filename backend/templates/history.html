@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}TLE 变化 - TLE-Tracking{% endblock %}
+{% block content %}
+
+<h2 class="page-title">TLE 变化历史</h2>
+
+<div class="card" style="padding: 0;">
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>时间</th>
+                    <th>NORAD ID</th>
+                    <th>名称</th>
+                    <th>类型</th>
+                    <th>来源</th>
+                    <th>近地点 (km)</th>
+                    <th>远地点 (km)</th>
+                    <th>Hash</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for r in records %}
+                <tr>
+                    <td style="white-space:nowrap;">{{ (r.timestamp or "")[:19] }}</td>
+                    <td><strong>{{ r.norad }}</strong></td>
+                    <td>{{ r.name }}</td>
+                    <td>
+                        {% if r.change_type == "initial" %}
+                            <span class="tag tag-initial">初始</span>
+                        {% elif r.change_type == "correction" %}
+                            <span class="tag tag-correction">修正</span>
+                        {% elif r.change_type == "maneuver" %}
+                            <span class="tag tag-maneuver">机动</span>
+                        {% else %}
+                            <span class="tag">{{ r.change_type }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ r.source or "-" }}</td>
+                    <td>{{ "%.1f"|format(r.periapsis) if r.periapsis else "-" }}</td>
+                    <td>{{ "%.1f"|format(r.apoapsis) if r.apoapsis else "-" }}</td>
+                    <td style="font-family:monospace;font-size:0.8rem;">{{ (r.tle_hash or "")[:12] }}</td>
+                </tr>
+            {% else %}
+                <tr><td colspan="8" style="text-align:center;color:#64748b;">暂无变化记录</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

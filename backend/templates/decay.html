@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}衰降状态 - TLE-Tracking{% endblock %}
+{% block content %}
+
+<h2 class="page-title">衰降状态</h2>
+
+{% if satellites %}
+<div class="cards cards-2">
+    {% for sat in satellites %}
+    <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div>
+                <h3 style="margin-bottom:0;">#{{ sat.norad }} {{ sat.name }}</h3>
+            </div>
+            <span class="tag
+                {% if sat.phase == 'normal' %}tag-initial
+                {% elif sat.phase == 'early_decay' or sat.phase == 'early' %}tag-correction
+                {% elif sat.phase == 'accelerating' %}tag-maneuver
+                {% elif sat.phase == 'critical' %}" style="background:#7f1d1d;color:#fca5a5;
+                {% else %}" style="background:#334155;color:#94a3b8;
+                {% endif %}">
+                {{ sat.phase }}
+            </span>
+        </div>
+        <div style="margin-top:0.75rem;display:flex;gap:2rem;">
+            <div>
+                <div style="font-size:0.75rem;color:#64748b;">近地点</div>
+                <div style="font-size:1.2rem;">{{ "%.1f"|format(sat.periapsis) if sat.periapsis else "-" }} km</div>
+            </div>
+            <div>
+                <div style="font-size:0.75rem;color:#64748b;">远地点</div>
+                <div style="font-size:1.2rem;">{{ "%.1f"|format(sat.apoapsis) if sat.apoapsis else "-" }} km</div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:3rem;color:#64748b;">
+    <p style="font-size:1.1rem;margin-bottom:0.5rem;">暂无衰降状态数据</p>
+    <p>衰降追踪功能需要在主程序中启用并运行一段时间后才能生成数据。</p>
+</div>
+{% endif %}
+
+{% endblock %}
