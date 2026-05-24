@@ -57,5 +57,5 @@ async def decay_page(request: Request):
     return templates.TemplateResponse(
         request,
         "decay.html",
-        {"satellites": results},
+        {"satellites": results, "active_page": "decay"},
     )
