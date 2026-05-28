@@ -209,6 +209,7 @@ schedule:
   minute: 12                  # Minute of each hour to request data (Space-Track mode only, recommended 12 or 48)
 
 files:
+  data_dir: /data             # Data directory (see cross-platform notes below)
   data_file: tle_data.jsonl   # Orbital data file
   cache: tle_cache.json       # Temporary cache file (Space-Track mode only)
   run_log: tle_log.jsonl      # Runtime log file
@@ -248,6 +249,11 @@ The following files are automatically generated after running the script:
 - **tle_log.jsonl**: Runtime logs, records program operation status, with rotation protection
 
 > **Log Rotation**: When file size exceeds the configured threshold (default 10MB), it will be automatically renamed to `.bak` backup file.
+
+> **Cross-platform Data Directory**:
+> - **Linux / Docker**: Defaults to `/data` (configurable via `files.data_dir` in `config.yaml`). In Docker, ensure the volume is mounted to `/data` for persistence.
+> - **Windows**: Defaults to the project directory (`.`). Override via `DATA_DIR` environment variable or modify `data_dir` in `config.yaml`.
+> - **Override priority**: `DATA_DIR` environment variable > `files.data_dir` in `config.yaml` > platform default.
 
 ---
 
@@ -632,6 +638,7 @@ schedule:
   minute: 12                  # 每小时请求的分钟数（仅 Space-Track 模式，建议 12 或 48）
 
 files:
+  data_dir: /data             # 数据文件根目录（跨平台说明见下方）
   data_file: tle_data.jsonl   # 轨道数据文件
   cache: tle_cache.json       # 临时缓存文件（仅 Space-Track 模式）
   run_log: tle_log.jsonl      # 运行日志文件
@@ -671,6 +678,11 @@ data_source:
 - **tle_log.jsonl**: 运行日志，记录程序运行状态，带轮转保护
 
 > **日志轮转**：当文件大小超过配置的阈值（默认 10MB）时，会自动重命名为 `.bak` 备份文件。
+
+> **跨平台数据目录说明**：
+> - **Linux / Docker**：默认为 `/data`（通过 `config.yaml` 的 `files.data_dir` 配置）。Docker 中请确保 volume 挂载到 `/data` 以实现持久化。
+> - **Windows**：默认为项目当前目录（`.`）。可通过 `DATA_DIR` 环境变量覆盖，或修改 `config.yaml` 中的 `data_dir` 配置。
+> - **覆盖优先级**：`DATA_DIR` 环境变量 > `config.yaml` 的 `files.data_dir` > 平台默认值。
 
 ---
 

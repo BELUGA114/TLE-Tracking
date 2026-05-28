@@ -91,7 +91,11 @@ _cfg = _load_config()
 NORAD_IDS: list[int] = _cfg.get("targets", {}).get("norad_ids", [25544])
 SCHEDULED_MINUTE: int = _cfg.get("schedule", {}).get("minute", 12)  # 每小时请求的分钟数（建议 12 或 48，避开整点/半点高峰）
 # 文件路径
-DATA_DIR: str = os.environ.get("DATA_DIR") or _cfg.get("files", {}).get("data_dir") or "."  # 数据文件根目录
+DATA_DIR: str = (
+    os.environ.get("DATA_DIR")
+    or _cfg.get("files", {}).get("data_dir")
+    or ("." if os.name == "nt" else "/data")
+)  # 数据文件根目录（Windows 默认当前目录，Linux/Docker 默认 /data）
 
 def _data_path(filename: str) -> str:
     """返回数据目录下的完整路径，自动创建目录"""
@@ -1262,21 +1266,28 @@ def main() -> None:
         write_log_message(f"以 CelesTrak 为主源启动，轮询间隔 {CELESTRAK_INTERVAL // 60} 分钟")
         
         # 加载 CelesTrak 轮询时间戳缓存（用于速率保护）
+        # 使用 time.time()（Unix 时间戳）存储，确保跨重启有效
         celestrak_cache_path = _data_path("celestrak_poll_cache.json")
         celestrak_last_poll: Optional[float] = None
         try:
             if os.path.exists(celestrak_cache_path):
                 with open(celestrak_cache_path, "r", encoding="utf-8") as f:
                     cache_data = json.load(f)
-                    celestrak_last_poll = cache_data.get("last_poll_ts")
-                    log.debug("已加载 CelesTrak 轮询缓存，上次轮询时间戳: %s", celestrak_last_poll)
+                    raw_ts = cache_data.get("last_poll_ts")
+                    now = time.time()
+                    # 校验：必须在合理时间范围内（Unix 时间戳应 > 1e8 ≈ 1973 年）
+                    if raw_ts is not None and raw_ts > 1e8 and raw_ts <= now:
+                        celestrak_last_poll = raw_ts
+                        log.debug("已加载 CelesTrak 轮询缓存，上次轮询时间戳: %s", celestrak_last_poll)
+                    else:
+                        log.warning("CelesTrak 轮询缓存时间戳无效（%s），将忽略", raw_ts)
         except (OSError, json.JSONDecodeError) as e:
             log.warning("CelesTrak 轮询缓存加载失败: %s", e)
-        
+
         while True:
             # 检查距上次轮询的时间间隔，确保满足最小速率限制
             if celestrak_last_poll is not None:
-                secs_since = time.monotonic() - celestrak_last_poll
+                secs_since = time.time() - celestrak_last_poll
                 if secs_since < CELESTRAK_INTERVAL:
                     wait_seconds = CELESTRAK_INTERVAL - secs_since
                     log.warning(
@@ -1334,8 +1345,8 @@ def main() -> None:
                         else:
                             log.error("备源 Space-Track 登录失败，请检查凭据是否过期")
             
-            # 更新轮询时间戳（每次轮询完成后记录）
-            celestrak_last_poll = time.monotonic()
+            # 更新轮询时间戳（每次轮询完成后记录，使用 time.time() 跨重启有效）
+            celestrak_last_poll = time.time()
             try:
                 with open(celestrak_cache_path, "w", encoding="utf-8") as f:
                     json.dump({"last_poll_ts": celestrak_last_poll}, f)
