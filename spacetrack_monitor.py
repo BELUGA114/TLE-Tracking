@@ -86,11 +86,8 @@ def _load_config() -> dict:
 
 _cfg = _load_config()
 
-# 用户可配置项（config.yaml 中可覆盖，括号内为默认值）
-# 目标
 NORAD_IDS: list[int] = _cfg.get("targets", {}).get("norad_ids", [25544])
 SCHEDULED_MINUTE: int = _cfg.get("schedule", {}).get("minute", 12)  # 每小时请求的分钟数（建议 12 或 48，避开整点/半点高峰）
-# 文件路径
 DATA_DIR: str = (
     os.environ.get("DATA_DIR")
     or _cfg.get("files", {}).get("data_dir")
@@ -106,15 +103,12 @@ def _data_path(filename: str) -> str:
 DATA_FILE: str = _data_path(_cfg.get("files", {}).get("data_file", "tle_data.jsonl"))    # 轨道数据文件（带轮转保护）
 CACHE_FILE: str = _data_path(_cfg.get("files", {}).get("cache",    "tle_cache.json"))   # 临时缓存，自动覆盖
 LOG_FILE: str = _data_path(_cfg.get("files", {}).get("run_log",  "tle_log.jsonl"))  # 运行日志（带轮转保护）
-# 预警阈值
 REENTRY_WARNING_KM: int  = _cfg.get("alerts", {}).get("reentry_warning_km",   200)  # 近地点低于此值时发出再入预警
 ONLY_PRINT_ON_UPDATE: bool = _cfg.get("alerts", {}).get("only_print_on_update", True)  # 仅在 TLE 变化时打印输出
-# 重试和速率限制配置
 LOGIN_MAX_FAILURES: int = _cfg.get("retry", {}).get("login_max_failures",  5)  # 登录最大失败次数
 LOGIN_PAUSE_SECONDS: int = _cfg.get("retry", {}).get("login_pause_seconds", 1800)  # 登录失败后等待时间（秒）
 REQUEST_MAX_RETRIES: int = _cfg.get("retry", {}).get("request_max_retries", 3)  # 请求最大重试次数
 REQUEST_RETRY_BASE: int = _cfg.get("retry", {}).get("request_retry_base",  5)  # 指数退避基数（秒）：5, 10, 20 ...
-# xpropagator 残差分析配置
 _xprop_cfg = _cfg.get("xpropagator", {})
 XPROP_ENABLED: bool = _xprop_cfg.get("enabled", True)
 XPROP_HOST: str = _xprop_cfg.get("host", "localhost")
@@ -131,8 +125,9 @@ CELESTRAK_INTERVAL: int = _ds_cfg.get("celestrak_interval_seconds", 7200)
 USE_SUPPLEMENTAL: bool  = _ds_cfg.get("use_supplemental",          False)
 
 # 以下参数涉及 API 合规，不暴露在 config.yaml 中，避免用户误改导致封号
-MIN_REQUEST_INTERVAL: int = 3600   # 两次请求最小间隔（秒），勿修改
-SESSION_MAX_AGE: int = 5400   # 会话最长有效期（秒），勿修改
+# Space-Track 规定 gp 端点每小时最多 1 次请求（3600s），登录会话约 2 小时过期（5400s 留 30 分钟余量）
+MIN_REQUEST_INTERVAL: int = 3600
+SESSION_MAX_AGE: int = 5400
 
 # 日志文件最大大小（字节），超过后自动轮转（10 MB）
 MAX_LOG_SIZE: int = _cfg.get("files", {}).get(
@@ -154,7 +149,7 @@ SPACE_TRACK_USER_AGENT: Optional[str] = _cfg.get("user_agent") or None
 # 批量查询 URL：获取最近 1 小时内发布的所有 TLE
 # 这是 Space-Track 官方推荐的查询方式，符合 API 使用规范
 #   decay_date/null-val          - 排除已衰减的卫星
-#   CREATION_DATE/%3Enow-0.042   - 最近 1 小时发布的 TLE（0.042天 ≈ 1小时）
+#   CREATION_DATE/%3Enow-0.042   - 最近 1 小时（略大于 1/24=0.04167，避免服务器浮点舍入漏掉边界记录）
 #   format/json                  - JSON 格式输出
 BULK_TLE_URL = (
     f"{BASE_URL}/basicspacedata/query/class/gp"
@@ -553,9 +548,8 @@ def filter_by_norad(records: list[dict], norad_ids: list[int]) -> dict[int, dict
     同一小时内多条记录属于“解算修正覆盖”，不是轨道演化序列。
     返回结构：{norad_id: latest_record_with_batch_count}
     """
-    # 将目标列表转为集合，提高查找效率
     target_set = set(norad_ids)
-    
+
     # 按 NORAD ID 分组
     grouped: dict[int, list[dict]] = {}
     for rec in records:
@@ -564,7 +558,6 @@ def filter_by_norad(records: list[dict], norad_ids: list[int]) -> dict[int, dict
         except (ValueError, TypeError):
             continue  # 跳过无效记录
         if nid in target_set:
-            # 添加到对应卫星的记录列表
             grouped.setdefault(nid, []).append(rec)
 
     # 对每个卫星，只保留最新的一条记录
@@ -572,7 +565,7 @@ def filter_by_norad(records: list[dict], norad_ids: list[int]) -> dict[int, dict
     for nid, recs in grouped.items():
         # 按时间排序（从旧到新）
         sorted_recs = sorted(recs, key=_record_sort_key)
-        latest = sorted_recs[-1]  # 取最后一条（最新）
+        latest = sorted_recs[-1]
         
         # 注入本批次记录数量，供 process_records 打日志用
         latest["_batch_count"] = len(sorted_recs)
@@ -683,14 +676,13 @@ def parse_orbit(record: dict) -> dict:
     norad_id = int(record.get("NORAD_CAT_ID") or 0)
     
     # 计算 TLE 哈希：优先使用 TLE 文本，如果为空则使用原始根数
+    # 取前 16 字符（64 位）足以避免跟踪卫星间的哈希碰撞
     if tle1 and tle2:
-        # 传统方式：使用 TLE 两行数据的 SHA256 哈希
         tle_hash = hashlib.sha256((tle1 + tle2).encode("utf-8")).hexdigest()[:16]
     else:
         # 5位编号耗尽后（~2026-07-20），TLE_LINE1/2 不再提供，改用 _raw_elements 计算 hash
         raw_elements = record.get("_raw_elements", {})
         if raw_elements:
-            # 将原始根数字典序列化为 JSON 字符串后计算 hash
             raw_str = json.dumps(raw_elements, sort_keys=True, ensure_ascii=False)
             tle_hash = hashlib.sha256(raw_str.encode("utf-8")).hexdigest()[:16]
             log.debug("[NORAD %d] TLE 文本为空，使用 _raw_elements 计算 hash", norad_id)
@@ -780,15 +772,15 @@ def estimate_reentry_days(orbit: dict) -> Optional[float]:
     # 近地点过高或 BSTAR 无效时无法估算
     if peri > 400.0 or bstar <= 0.0 or period <= 0:
         return None
-    # 简化的大气密度模型
+    # 简化的大气密度模型（经验参数拟合自 US Standard Atmosphere 1976）
     rho_area = 2e-10 * math.exp(-(peri - 200.0) / 60.0) * 60000.0
     rho0 = 2.461e-5
     n = 1440.0 / period  # 平均运动（圈/天）
-    # 平均运动变化率
+    # 平均运动变化率（BSTAR 阻力模型）
     dn_dt = 3.0 * math.pi * (n ** 2) * bstar * (rho_area / rho0)
     if dn_dt <= 1e-12:
         return None
-    # 假设再入时平均运动为 16 圈/天
+    # 16 圈/天 ≈ 90 分钟为低轨理论最低稳定周期，以此作为再入判定阈值
     n_reentry = 16.0
     if n <= n_reentry:
         return 0.0
@@ -974,24 +966,19 @@ def process_records(
         prev = prev_data.get(norad_id)
         cur_hash = orbit["tle_hash"]
 
-        # 如果本批次有多条记录，记录日志（仅写入文件）
         if batch_count > 1:
             write_log_message(f"[{norad_id}] 本批次共 {batch_count} 条解算记录，取最新一条")
 
-        # 检测 TLE 是否变化（与最新 Hash 比较）
         if cur_hash != last_hash.get(norad_id):
-            # 分类变化类型（解算修正 vs 真实机动）
             change_type = classify_change(orbit, prev)
             change_type_cn = format_change_type(change_type)  # 中英文对照
             
             msg = f"[{norad_id}] 检测到 TLE 变化！(hash: {last_hash.get(norad_id, '无')} → {cur_hash}, 类型: {change_type_cn})"
             log.info(msg)
             write_log_message(msg)
-            
-            # 打印轨道信息（显示与上一次的差异）
+
             print_orbit(orbit, prev)
-            
-            # 写入轨道数据文件（附带变化类型）
+
             log_record(orbit, change_type, source=record_source)
             
             # 更新内存中的状态（供下次比较使用）
@@ -1185,7 +1172,6 @@ def main() -> None:
     active_source = PRIMARY_SOURCE       # 当前实际使用的数据源
 
     if PRIMARY_SOURCE == "spacetrack":
-        # Space-Track 主源路径（保持原有逻辑完整）
         with SpaceTrackSession() as st:
             first_run = True
             while True:
@@ -1206,7 +1192,6 @@ def main() -> None:
                     wake_at = compute_next_wake(cache, SCHEDULED_MINUTE)
                     wait_until(wake_at)
 
-                # 开始批量拉取（仅写入文件）
                 write_log_message(
                     f"[{datetime.now(timezone.utc).strftime('%H:%M:%S')}] 开始批量拉取（主源: spacetrack）"
                 )
@@ -1275,7 +1260,7 @@ def main() -> None:
                     cache_data = json.load(f)
                     raw_ts = cache_data.get("last_poll_ts")
                     now = time.time()
-                    # 校验：必须在合理时间范围内（Unix 时间戳应 > 1e8 ≈ 1973 年）
+                    # 校验时间戳范围：拒绝损坏或未初始化的值（0、负数），防止速率保护因错误数据卡死
                     if raw_ts is not None and raw_ts > 1e8 and raw_ts <= now:
                         celestrak_last_poll = raw_ts
                         log.debug("已加载 CelesTrak 轮询缓存，上次轮询时间戳: %s", celestrak_last_poll)
@@ -1305,7 +1290,6 @@ def main() -> None:
                 log.info("无 CelesTrak 轮询历史记录，将立即执行首次查询")
                 write_log_message("无 CelesTrak 轮询历史记录，将立即执行首次查询")
             
-            # 开始 CelesTrak 轮询（仅写入文件）
             write_log_message(
                 f"[{datetime.now(timezone.utc).strftime('%H:%M:%S')}] 开始 CelesTrak 轮询"
             )
