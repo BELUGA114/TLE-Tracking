@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
+from fastapi import APIRouter
 
 from backend.services.data_loader import load_latest_satellites
 
 router = APIRouter(prefix="/api/satellites", tags=["satellites"])
-templates = Jinja2Templates(directory="backend/templates")
 
 
 def _merge_raw(sats: list[dict]) -> None:
@@ -34,15 +31,3 @@ async def get_satellite(norad_id: int):
         if sat.get("norad") == norad_id:
             return sat
     return {"error": f"NORAD ID {norad_id} not found"}, 404
-
-
-@router.get("/page", response_class=HTMLResponse)
-async def satellites_page(request: Request):
-    """卫星总览页面"""
-    sats = load_latest_satellites()
-    _merge_raw(sats)
-    return templates.TemplateResponse(
-        request,
-        "satellites.html",
-        {"satellites": sats, "total": len(sats)},
-    )
