@@ -1,39 +1,7 @@
-"""
-xpropagator gRPC 客户端插件式封装
+"""xpropagator gRPC 客户端插件式封装
 
 依赖：grpcio grpcio-tools
-
-Proto 存根生成说明：
-  如果 api/v1/ 目录中已有 proto 文件和生成的 Python 存根，无需重新生成。
-  
-  如需从 xpropagator 仓库更新 proto 定义并重新生成：
-  
-  1. 获取最新 proto 文件（替换现有文件）：
-     git clone https://github.com/xpropagation/xpropagator.git _xprop_src
-     cp _xprop_src/api/v1/*.proto api/v1/
-     cp _xprop_src/api/v1/core/*.proto api/v1/core/
-     rm -rf _xprop_src
-
-  2. 重新生成 Python gRPC 存根（PowerShell，在项目根目录执行）：
-     python -m grpc_tools.protoc `
-         -I . `
-         --python_out=. `
-         --grpc_python_out=. `
-         api/v1/common.proto `
-         api/v1/info.proto `
-         api/v1/main.proto `
-         (Get-ChildItem api/v1/core/*.proto | ForEach-Object { $_.FullName.Replace((Get-Location).Path + "\", "") })
-
-  3. Linux/macOS bash 等价命令：
-     python -m grpc_tools.protoc \\
-         -I . \\
-         --python_out=. \\
-         --grpc_python_out=. \\
-         api/v1/common.proto \\
-         api/v1/info.proto \\
-         api/v1/main.proto \\
-         api/v1/core/*.proto
-"""
+Proto 定义参见 api/v1/ 目录。"""
 
 from __future__ import annotations
 
@@ -167,20 +135,18 @@ def propagate_tle(
         )
         stub = pb2_grpc.PropagatorStub(channel)
 
-        # 生成伪 NORAD ID（80000-99999），融合真实 norad_id 避免 5 位编号耗尽后的哈希冲突
+        # 生成伪 NORAD ID：80000-99999 区间无已分配卫星编号，不会与真实卫星冲突
+        # hash() 进程级加盐确保重启后 ID 不同，绕过 xpropagator 服务端 TLE 缓存
         fake_id = 80000 + (hash(f"{norad_id}:{tle1}:{tle2}") % 20000)
-
-        # 绝对防缓存版（每次都不同，需配合定期重启清理累积对象）
-        # fake_id = 80000 + int(time.time() * 1000) % 20000
 
         spoof_tle1, spoof_tle2 = _spoof_catalog_id(tle1, tle2, fake_id)
 
-        # req_id 使用时间戳 + 真实 NORAD ID + 伪 ID（确保唯一性且为整数）
+        # req_id：微秒时间戳为高位 + norad_id + fake_id，三值打包确保 int64 内唯一
         req_id = int(time.time() * 1000000) + norad_id * 100000 + fake_id
         
         request = prop_pb2.PropRequest(
             req_id=req_id,
-            time_type=prop_pb2.TimeMse,  # 使用 MSE (Mean Solar Ephemeris) 时间类型
+            time_type=prop_pb2.TimeMse,  # SGP4 内部使用 MSE 时间系统（Space-Track Report #3），不能替换为 UTC
             task=prop_pb2.PropTask(
                 time_utc=_dt_to_pb_timestamp(target_time),
                 sat=common_pb2.Satellite(  # ← 从 common_pb2 取
@@ -511,7 +477,7 @@ def gp_json_to_tle_lines(gp: dict) -> tuple[str, str]:
             f"TLE Line 1 长度异常: 期望 68 字符，实际 {len(line1_body)} 字符。"
             f"可能原因：根数字段格式化错误或输入数据不完整。"
         )
-    line1 = line1_body + str(_tle_checksum(line1_body + "0"))  # 加占位符凑齐69字符
+    line1 = line1_body + str(_tle_checksum(line1_body + "0"))  # "0"是占位符凑足69字符，_tle_checksum内部取前68字符忽略末位
 
     # ── Line 2（68字符正文 + 1字符校验）──
     # 列位（0-indexed）: [0]'2' [1]' ' [2:7]编号 [7]' ' [8:16]倾角 [16]' '
@@ -533,6 +499,6 @@ def gp_json_to_tle_lines(gp: dict) -> tuple[str, str]:
             f"TLE Line 2 长度异常: 期望 68 字符，实际 {len(line2_body)} 字符。"
             f"可能原因：根数字段格式化错误或输入数据不完整。"
         )
-    line2 = line2_body + str(_tle_checksum(line2_body + "0"))  # 加占位符凑齐69字符
+    line2 = line2_body + str(_tle_checksum(line2_body + "0"))  # "0"是占位符凑足69字符，_tle_checksum内部取前68字符忽略末位
 
     return line1, line2
