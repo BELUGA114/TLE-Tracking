@@ -89,6 +89,7 @@ def fetch_single(
 
         if resp.status_code == 404:
             log.warning("[CelesTrak][%d] 未找到该卫星（404）", norad_id)
+            # 404 为永久性不存在，标记已查询避免后续重复请求同一编号
             _mark_queried(norad_id)
             return None
 
