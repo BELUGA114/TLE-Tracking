@@ -24,7 +24,6 @@ build/
 *.war
 *.ear
 target/
-build/
 .gradle/
 gradle-wrapper.jar
 
@@ -45,6 +44,11 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# ===== Node / 前端 =====
+node_modules/
+frontend/dist/
+*.tsbuildinfo
 
 # ===== Claude =====
 CLAUDE.md
