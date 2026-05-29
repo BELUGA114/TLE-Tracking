@@ -14,6 +14,8 @@
       </label>
     </div>
 
+    <TrendChart :records="filteredRecords" />
+
     <div class="card" style="padding: 0;">
       <div class="table-wrap">
         <table>
@@ -85,6 +87,7 @@ import { ref, computed, onMounted } from "vue"
 import type { HistoryRecord } from "../types"
 import { fetchHistory } from "../api"
 import DetailItem from "../components/DetailItem.vue"
+import TrendChart from "../components/TrendChart.vue"
 
 const records = ref<HistoryRecord[]>([])
 const visible = ref<Record<number, boolean>>({})
