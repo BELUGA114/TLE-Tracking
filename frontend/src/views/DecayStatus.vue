@@ -2,24 +2,37 @@
   <div>
     <h2 class="page-title">衰降状态</h2>
 
-    <div v-if="satellites.length" class="cards cards-2">
-      <div v-for="sat in satellites" :key="sat.norad" class="card">
-        <div class="card-header">
-          <h3>#{{ sat.norad }} {{ sat.name }}</h3>
-          <span :class="phaseClass(sat.phase)">{{ phaseLabel(sat.phase) }}</span>
+    <template v-if="satellites.length">
+      <div class="cards cards-2 chart-row">
+        <div class="card">
+          <h3 class="chart-title">阶段分布</h3>
+          <PhasePieChart :satellites="satellites" />
         </div>
-        <div class="card-body">
-          <div class="stat">
-            <div class="stat-label">近地点</div>
-            <div class="stat-value">{{ sat.periapsis != null ? sat.periapsis.toFixed(1) : "-" }} km</div>
+        <div class="card">
+          <h3 class="chart-title">近地点/远地点分布</h3>
+          <PhaseScatterChart :satellites="satellites" />
+        </div>
+      </div>
+
+      <div class="cards cards-2">
+        <div v-for="sat in satellites" :key="sat.norad" class="card">
+          <div class="card-header">
+            <h3>#{{ sat.norad }} {{ sat.name }}</h3>
+            <span :class="phaseClass(sat.phase)">{{ phaseLabel(sat.phase) }}</span>
           </div>
-          <div class="stat">
-            <div class="stat-label">远地点</div>
-            <div class="stat-value">{{ sat.apoapsis != null ? sat.apoapsis.toFixed(1) : "-" }} km</div>
+          <div class="card-body">
+            <div class="stat">
+              <div class="stat-label">近地点</div>
+              <div class="stat-value">{{ sat.periapsis != null ? sat.periapsis.toFixed(1) : "-" }} km</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">远地点</div>
+              <div class="stat-value">{{ sat.apoapsis != null ? sat.apoapsis.toFixed(1) : "-" }} km</div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </template>
     <div v-else class="card empty-card">
       <p>暂无衰降状态数据</p>
     </div>
@@ -30,6 +43,8 @@
 import { ref, onMounted } from "vue"
 import type { DecaySatellite } from "../types"
 import { fetchDecayStatus } from "../api"
+import PhasePieChart from "../components/PhasePieChart.vue"
+import PhaseScatterChart from "../components/PhaseScatterChart.vue"
 
 const satellites = ref<DecaySatellite[]>([])
 
@@ -92,5 +107,13 @@ function phaseLabel(phase: string) {
   text-align: center;
   padding: 3rem;
   color: #64748b;
+}
+.chart-row {
+  margin-bottom: 1.5rem;
+}
+.chart-title {
+  font-size: 0.9rem;
+  color: #94a3b8;
+  margin-bottom: 0.25rem;
 }
 </style>

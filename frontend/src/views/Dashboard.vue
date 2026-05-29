@@ -15,6 +15,11 @@
       </div>
     </div>
 
+    <div class="card chart-card">
+      <h3 class="chart-title">轨道高度分布</h3>
+      <AltitudeChart :satellites="satellites" />
+    </div>
+
     <div class="card" style="padding: 0;">
       <div class="table-wrap">
         <table>
@@ -78,6 +83,7 @@ import { ref, onMounted } from "vue"
 import type { Satellite } from "../types"
 import { fetchSatellites } from "../api"
 import DetailItem from "../components/DetailItem.vue"
+import AltitudeChart from "../components/AltitudeChart.vue"
 
 const satellites = ref<Satellite[]>([])
 const totalRecords = ref(0)
@@ -123,3 +129,14 @@ function classificationLabel(cls: string) {
   return cls ? `${cls}（${labels[cls] || "未知"}）` : "-"
 }
 </script>
+
+<style scoped>
+.chart-card {
+  margin-bottom: 1.5rem;
+}
+.chart-title {
+  font-size: 0.9rem;
+  color: #94a3b8;
+  margin-bottom: 0.5rem;
+}
+</style>
