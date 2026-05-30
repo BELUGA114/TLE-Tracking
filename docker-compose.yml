@@ -1,7 +1,7 @@
 services:
-  tel-tracking:
+  tle-tracking:
     build: .
-    container_name: tel-tracking
+    container_name: tle-tracking
     restart: unless-stopped
     ports:
       - "8000:8000"

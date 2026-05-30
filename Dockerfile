@@ -2,10 +2,8 @@
 FROM node:22-alpine AS frontend-builder
 
 WORKDIR /build
-COPY frontend/package.json frontend/pnpm-lock.yaml ./
-RUN corepack enable && pnpm install --frozen-lockfile
 COPY frontend/ .
-RUN pnpm build
+RUN npm install && npx vite build
 
 # Stage 2: Python 后端 + 核心监控 + 静态文件服务
 FROM python:3.11-slim
