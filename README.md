@@ -315,6 +315,8 @@ To use high-precision residual analysis functionality, please deploy xpropagator
 
 For detailed deployment instructions, refer to the [xpropagator official repository](https://github.com/xpropagation/xpropagator).
 
+> The MIT license of this repository applies only to TLE-Tracking's own code. External services, libraries, and propagator components follow their respective license terms.
+
 ### Residual Analysis Principle
 
 When TLE update is detected:
@@ -737,6 +739,8 @@ TLE-Tracking 仅通过网络 gRPC 调用外部 xpropagator 服务，项目本身
 如需使用高精度残差分析功能，请自行部署 xpropagator 服务。
 
 详细部署说明请参考 [xpropagator 官方仓库](https://github.com/xpropagation/xpropagator)。
+
+> 本仓库的 MIT 许可证仅适用于 TLE-Tracking 自有代码，外部组件和服务遵循其各自的许可条款。
 
 ### 残差分析原理
 
