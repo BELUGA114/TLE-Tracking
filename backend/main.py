@@ -13,15 +13,17 @@ TLE-Tracking Web 仪表盘 — FastAPI 应用入口
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.routers import decay, history, satellites
+from backend.services.ws_manager import manager, file_watcher, send_initial
 
 logging.basicConfig(
     level=logging.INFO,
@@ -32,8 +34,15 @@ logging.basicConfig(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logging.getLogger(__name__).info("TLE-Tracking 仪表盘已启动")
+    logger = logging.getLogger(__name__)
+    logger.info("TLE-Tracking 仪表盘已启动")
+    watcher = asyncio.create_task(file_watcher())
     yield
+    watcher.cancel()
+    try:
+        await watcher
+    except asyncio.CancelledError:
+        pass
 
 
 app = FastAPI(
@@ -50,6 +59,19 @@ app.include_router(decay.router)
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.websocket("/api/ws")
+async def websocket_endpoint(ws: WebSocket):
+    await manager.connect(ws)
+    await send_initial(ws)
+    try:
+        while True:
+            await ws.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(ws)
+    except Exception:
+        manager.disconnect(ws)
 
 
 # 生产模式：提供 Vue SPA 构建产物

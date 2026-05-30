@@ -79,24 +79,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from "vue"
-import type { Satellite } from "../types"
-import { fetchSatellites } from "../api"
+import { computed } from "vue"
 import DetailItem from "../components/DetailItem.vue"
 import AltitudeChart from "../components/AltitudeChart.vue"
+import { useWebSocket } from "../composables/useWebSocket"
 
-const satellites = ref<Satellite[]>([])
-const totalRecords = ref(0)
-
-onMounted(async () => {
-  try {
-    const data = await fetchSatellites()
-    satellites.value = data.satellites
-    totalRecords.value = data.total
-  } catch (e) {
-    console.error("加载卫星数据失败", e)
-  }
-})
+const { satellites, historyRecords } = useWebSocket()
+const totalRecords = computed(() => historyRecords.value.length)
 
 function toggle(ev: MouseEvent) {
   const row = (ev.currentTarget as HTMLElement)

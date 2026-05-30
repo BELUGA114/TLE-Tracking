@@ -40,22 +40,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from "vue"
-import type { DecaySatellite } from "../types"
-import { fetchDecayStatus } from "../api"
 import PhasePieChart from "../components/PhasePieChart.vue"
 import PhaseScatterChart from "../components/PhaseScatterChart.vue"
+import { useWebSocket } from "../composables/useWebSocket"
 
-const satellites = ref<DecaySatellite[]>([])
-
-onMounted(async () => {
-  try {
-    const data = await fetchDecayStatus()
-    satellites.value = data.satellites
-  } catch (e) {
-    console.error("加载衰降状态失败", e)
-  }
-})
+const { decaySatellites: satellites } = useWebSocket()
 
 function phaseClass(phase: string) {
   const map: Record<string, string> = {

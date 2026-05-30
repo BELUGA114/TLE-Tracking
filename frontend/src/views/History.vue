@@ -36,8 +36,8 @@
             </tr>
           </thead>
           <tbody>
-            <template v-for="(r, idx) in filteredRecords" :key="idx">
-              <tr class="record-row" @click="toggleDetail($event, idx)">
+            <template v-for="r in filteredRecords" :key="recordId(r)">
+              <tr class="record-row" @click="toggleDetail($event, recordId(r))">
                 <td class="arrow">▶</td>
                 <td style="white-space:nowrap;">{{ (r.epoch || "").slice(0, 19) }}</td>
                 <td><strong>{{ r.norad }}</strong></td>
@@ -53,7 +53,7 @@
                 <td>{{ r.period?.toFixed(3) ?? "-" }}</td>
                 <td style="font-family:monospace;font-size:0.8rem;">{{ (r.tle_hash || "").slice(0, 12) }}</td>
               </tr>
-              <tr class="detail-row" :style="{ display: expanded[idx] ? 'table-row' : 'none' }">
+              <tr class="detail-row" :style="{ display: expanded[recordId(r)] ? 'table-row' : 'none' }">
                 <td colspan="12">
                   <div class="detail-grid">
                     <DetailItem label="接收时间" :value="(r.timestamp || '').slice(0, 19)" />
@@ -83,15 +83,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue"
+import { ref, computed, watch } from "vue"
 import type { HistoryRecord } from "../types"
-import { fetchHistory } from "../api"
 import DetailItem from "../components/DetailItem.vue"
 import TrendChart from "../components/TrendChart.vue"
+import { useWebSocket } from "../composables/useWebSocket"
 
-const records = ref<HistoryRecord[]>([])
+const { historyRecords: records } = useWebSocket()
 const visible = ref<Record<number, boolean>>({})
-const expanded = ref<Record<number, boolean>>({})
+const expanded = ref<Record<string, boolean>>({})
+
+function recordId(r: HistoryRecord): string {
+  return r.tle_hash || `${r.norad}-${r.epoch}`
+}
 
 const satelliteList = computed(() => {
   const map = new Map<number, { norad: number; name: string }>()
@@ -111,18 +115,18 @@ const filteredRecords = computed(() =>
   records.value.filter((r) => visible.value[r.norad])
 )
 
-onMounted(async () => {
-  try {
-    const data = await fetchHistory(100)
-    records.value = data.changes
-    // default all visible
-    for (const r of records.value) {
-      if (r.norad != null) visible.value[r.norad] = true
+// 新数据到达时，自动将新出现的卫星标记为可见
+watch(
+  () => records.value.map((r) => r.norad),
+  (norads) => {
+    for (const id of norads) {
+      if (id != null && visible.value[id] == null) {
+        visible.value[id] = true
+      }
     }
-  } catch (e) {
-    console.error("加载历史数据失败", e)
-  }
-})
+  },
+  { immediate: true }
+)
 
 function toggleAll() {
   const next = !allChecked.value
@@ -135,11 +139,11 @@ function toggleSat(norad: number) {
   visible.value[norad] = !visible.value[norad]
 }
 
-function toggleDetail(ev: MouseEvent, idx: number) {
-  expanded.value[idx] = !expanded.value[idx]
+function toggleDetail(ev: MouseEvent, id: string) {
+  expanded.value[id] = !expanded.value[id]
   const row = ev.currentTarget as HTMLElement
   const arrow = row.querySelector(".arrow") as HTMLElement
-  if (arrow) arrow.textContent = expanded.value[idx] ? "▼" : "▶"
+  if (arrow) arrow.textContent = expanded.value[id] ? "▼" : "▶"
 }
 
 function tagClass(type: string) {
