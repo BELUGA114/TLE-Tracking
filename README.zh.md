@@ -4,7 +4,7 @@
 
 ---
 
-一个支持双数据源（Space-Track.org 和 CelesTrak）的轻量级轨道监控系统，提供 Web 仪表盘实时展示轨道数据。
+一个支持双数据源（Space-Track.org 和 CelesTrak）的轻量级轨道监控系统，提供简单的 Web 仪表盘实时展示轨道数据。
 
 **核心能力**：
 
