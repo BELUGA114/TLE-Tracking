@@ -2,14 +2,16 @@ from __future__ import annotations
 
 import asyncio
 import json
-from pathlib import Path
+import os
 
 from fastapi import WebSocket
 
 from backend.services.data_loader import (
+    get_data_dir,
     load_change_history,
     load_decay_state,
     load_latest_satellites,
+    merge_raw_elements,
 )
 
 
@@ -40,24 +42,17 @@ class ConnectionManager:
 
 
 manager = ConnectionManager()
-_data_root = Path(__file__).resolve().parent.parent.parent / "data"
-
-
-def _merge_raw(records: list[dict]) -> None:
-    for r in records:
-        if raw := r.pop("_raw_elements", None):
-            r.update(raw)
 
 
 def _load_satellites() -> list[dict]:
     sats = load_latest_satellites()
-    _merge_raw(sats)
+    merge_raw_elements(sats)
     return sats
 
 
 def _load_history() -> list[dict]:
     records = load_change_history(limit=100)
-    _merge_raw(records)
+    merge_raw_elements(records)
     return records
 
 
@@ -136,20 +131,22 @@ async def broadcast_decay() -> None:
 
 async def file_watcher() -> None:
     """后台监听数据文件变化，有变化时广播更新"""
+
+    data_dir = get_data_dir()
     files: dict[str, float] = {
         "tle_data.jsonl": 0,
         "decay_state.json": 0,
     }
     for name in files:
-        path = _data_root / name
-        files[name] = path.stat().st_mtime if path.exists() else 0
+        path = os.path.join(data_dir, name)
+        files[name] = os.path.getmtime(path) if os.path.exists(path) else 0
 
     while True:
         await asyncio.sleep(3)
         changed: list[str] = []
         for name in files:
-            path = _data_root / name
-            mtime = path.stat().st_mtime if path.exists() else 0
+            path = os.path.join(data_dir, name)
+            mtime = os.path.getmtime(path) if os.path.exists(path) else 0
             if mtime != files[name]:
                 files[name] = mtime
                 changed.append(name)
