@@ -10,7 +10,7 @@ RUN pnpm build
 # Stage 2: Python 后端 + 核心监控 + 静态文件服务
 FROM python:3.11-slim
 
-LABEL description="TEL-Tracking Orbital Monitor — Web Dashboard"
+LABEL description="TLE-Tracking Orbital Monitor — Web Dashboard"
 LABEL version="2.0"
 
 WORKDIR /app
