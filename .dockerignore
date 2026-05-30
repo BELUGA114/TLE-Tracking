@@ -5,10 +5,7 @@ env/
 __pycache__/
 *.pyc
 .env
-config.yaml
-*.jsonl
-*.json
-*.bak
 .claude/
 README.md
 data/
+node_modules/
