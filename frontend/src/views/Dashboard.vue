@@ -20,12 +20,29 @@
       <AltitudeChart :satellites="satellites" />
     </div>
 
+    <div class="filter-bar">
+      <span class="filter-label">搜索：</span>
+      <input v-model="searchQuery" type="text" class="search-input" placeholder="NORAD ID 或名称..." />
+      <span class="total-badge">{{ filteredSatellites.length }} / {{ satellites.length }}</span>
+    </div>
+
     <div class="card" style="padding: 0;">
       <div class="table-wrap">
-        <table>
+        <table style="table-layout:fixed">
+          <colgroup>
+            <col style="width:40px" />
+            <col style="width:12%" />
+            <col style="width:13%" />
+            <col style="width:12%" />
+            <col style="width:12%" />
+            <col style="width:8%" />
+            <col style="width:10%" />
+            <col style="width:10%" />
+            <col style="width:auto" />
+          </colgroup>
           <thead>
             <tr>
-              <th style="width:40px"></th>
+              <th></th>
               <th>NORAD ID</th>
               <th>名称</th>
               <th>近地点 (km)</th>
@@ -37,10 +54,10 @@
             </tr>
           </thead>
           <tbody>
-            <template v-for="sat in satellites" :key="sat.norad">
+            <template v-for="sat in filteredSatellites" :key="sat.norad">
               <tr class="record-row" @click="toggle($event)">
                 <td class="arrow">▶</td>
-                <td><strong>{{ sat.norad }}</strong></td>
+                <td><router-link :to="`/satellite/${sat.norad}`" class="norad-link"><strong>{{ sat.norad }}</strong></router-link></td>
                 <td>{{ sat.name }}</td>
                 <td>{{ sat.periapsis.toFixed(1) }}</td>
                 <td>{{ sat.apoapsis.toFixed(1) }}</td>
@@ -71,6 +88,9 @@
             <tr v-if="!satellites.length">
               <td colspan="9" style="text-align:center;color:#64748b;">加载中...</td>
             </tr>
+            <tr v-else-if="!filteredSatellites.length">
+              <td colspan="9" style="text-align:center;color:#64748b;">无匹配卫星</td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -79,13 +99,22 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue"
+import { ref, computed } from "vue"
 import DetailItem from "../components/DetailItem.vue"
 import AltitudeChart from "../components/AltitudeChart.vue"
 import { useWebSocket } from "../composables/useWebSocket"
 
 const { satellites, historyRecords } = useWebSocket()
 const totalRecords = computed(() => historyRecords.value.length)
+
+const searchQuery = ref("")
+const filteredSatellites = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  if (!q) return satellites.value
+  return satellites.value.filter(
+    (s) => String(s.norad).includes(q) || s.name.toLowerCase().includes(q)
+  )
+})
 
 function toggle(ev: MouseEvent) {
   const row = (ev.currentTarget as HTMLElement)
@@ -127,5 +156,30 @@ function classificationLabel(cls: string) {
   font-size: 0.9rem;
   color: #94a3b8;
   margin-bottom: 0.5rem;
+}
+.search-input {
+  flex: 1;
+  max-width: 300px;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 4px;
+  padding: 0.35rem 0.6rem;
+  color: #e2e8f0;
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.search-input:focus {
+  border-color: #0ea5e9;
+}
+.search-input::placeholder {
+  color: #475569;
+}
+.norad-link {
+  color: #38bdf8;
+  text-decoration: none;
+}
+.norad-link:hover {
+  text-decoration: underline;
 }
 </style>

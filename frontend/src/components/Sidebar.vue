@@ -6,8 +6,27 @@
       <router-link to="/history" :class="{ active: $route.name === 'history' }">TLE 变化</router-link>
       <router-link to="/decay" :class="{ active: $route.name === 'decay' }">衰降状态</router-link>
     </nav>
+    <div class="ws-box">
+      <div class="ws-status">
+        <span class="ws-dot" :class="connectionStatus"></span>
+        <span class="ws-label">{{ statusLabel }}</span>
+      </div>
+    </div>
   </aside>
 </template>
+
+<script setup lang="ts">
+import { computed } from "vue"
+import { useWebSocket } from "../composables/useWebSocket"
+
+const { connectionStatus } = useWebSocket()
+
+const statusLabel = computed(() => ({
+  connected: "已连接",
+  connecting: "连接中",
+  disconnected: "已断开",
+}[connectionStatus.value]))
+</script>
 
 <style scoped>
 .sidebar {
@@ -44,5 +63,42 @@
 .sidebar a.active {
   background: #0ea5e9;
   color: #fff;
+}
+.ws-box {
+  margin-top: auto;
+  padding: 0 0.5rem;
+}
+.ws-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.5rem;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  background: #0f172a;
+}
+.ws-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.ws-dot.connected {
+  background: #4ade80;
+  box-shadow: 0 0 6px #4ade8044;
+}
+.ws-dot.connecting {
+  background: #fbbf24;
+  animation: pulse 1s ease-in-out infinite;
+}
+.ws-dot.disconnected {
+  background: #f87171;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 </style>

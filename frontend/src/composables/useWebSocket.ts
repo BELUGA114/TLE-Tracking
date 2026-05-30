@@ -6,6 +6,7 @@ const satellites = ref<Satellite[]>([])
 const historyRecords = ref<HistoryRecord[]>([])
 const decaySatellites = ref<DecaySatellite[]>([])
 const loading = ref(true)
+const connectionStatus = ref<"connected" | "connecting" | "disconnected">("disconnected")
 
 let ws: WebSocket | null = null
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null
@@ -14,8 +15,13 @@ let refCount = 0
 function connect() {
   if (ws?.readyState === WebSocket.OPEN || ws?.readyState === WebSocket.CONNECTING) return
 
+  connectionStatus.value = "connecting"
   const protocol = location.protocol === "https:" ? "wss:" : "ws:"
   ws = new WebSocket(`${protocol}//${location.host}/api/ws`)
+
+  ws.onopen = () => {
+    connectionStatus.value = "connected"
+  }
 
   ws.onmessage = (event: MessageEvent) => {
     try {
@@ -39,6 +45,7 @@ function connect() {
 
   ws.onclose = () => {
     ws = null
+    connectionStatus.value = "disconnected"
     scheduleReconnect()
   }
 
@@ -49,6 +56,7 @@ function connect() {
 
 function scheduleReconnect() {
   if (reconnectTimer) return
+  connectionStatus.value = "connecting"
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null
     connect()
@@ -80,5 +88,5 @@ export function useWebSocket() {
     }
   })
 
-  return { satellites, historyRecords, decaySatellites, loading }
+  return { satellites, historyRecords, decaySatellites, loading, connectionStatus }
 }
