@@ -253,6 +253,8 @@ spacetrack_monitor.py → data/*.jsonl → FastAPI 文件监听 → WebSocket �
 
 **本仓库不包含或分发 USSF SGP4/SGP4-XP 二进制文件。** TLE-Tracking 仅通过网络 gRPC 调用外部 xpropagator 服务。部署说明请参考 [xpropagator 官方仓库](https://github.com/xpropagation/xpropagator)。
 
+> 本仓库的 MIT 许可证仅适用于 TLE-Tracking 自有代码，外部组件和服务遵循其各自的许可条款。
+
 ### 残差分析原理
 
 当检测到 TLE 更新时：

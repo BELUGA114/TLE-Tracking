@@ -227,6 +227,8 @@ The following files are generated automatically:
 
 **This repository does not contain or distribute USSF SGP4/SGP4-XP binaries.** TLE-Tracking calls the external xpropagator service via gRPC. See the [xpropagator repository](https://github.com/xpropagation/xpropagator) for deployment.
 
+> The MIT license of this repository applies only to TLE-Tracking's own code. External services, libraries, and propagator components follow their respective license terms.
+
 ### Residual Analysis Principle
 
 When a TLE update is detected:
