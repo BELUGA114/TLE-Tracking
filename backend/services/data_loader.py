@@ -12,7 +12,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-from datetime import datetime, timezone
 from typing import Optional
 
 import yaml
@@ -25,17 +24,15 @@ def _project_root() -> str:
     return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
-def _find_file(filename: str) -> Optional[str]:
-    """在数据目录下查找文件"""
+def get_data_dir() -> str:
+    """返回数据文件所在目录，优先 congfig.yaml 中的 data_dir，其次项目根下的 data/"""
 
     root = _project_root()
 
-    # 项目根下的 data/ 目录（本地开发 / Windows 场景）
-    local = os.path.join(root, "data", filename)
-    if os.path.exists(local):
+    local = os.path.join(root, "data")
+    if os.path.isdir(local):
         return local
 
-    # config.yaml 中的 data_dir（Docker 场景，值为 /data）
     try:
         cfg_path = os.path.join(root, "config.yaml")
         if os.path.exists(cfg_path):
@@ -43,18 +40,31 @@ def _find_file(filename: str) -> Optional[str]:
                 cfg = yaml.safe_load(f) or {}
             data_dir = cfg.get("files", {}).get("data_dir")
             if data_dir:
-                p = os.path.join(data_dir, filename)
-                if os.path.exists(p):
-                    return p
+                return data_dir
     except Exception as exc:
         log.debug("config.yaml 读取失败: %s", exc)
 
-    return None
+    return local
+
+
+def _find_file(filename: str) -> Optional[str]:
+    """在数据目录下查找文件"""
+
+    data_dir = get_data_dir()
+    p = os.path.join(data_dir, filename)
+    return p if os.path.exists(p) else None
+
+
+def merge_raw_elements(records: list[dict]) -> None:
+    """将 _raw_elements 中的字段合并到顶层，就地修改"""
+
+    for r in records:
+        if raw := r.pop("_raw_elements", None):
+            r.update(raw)
 
 
 def load_latest_satellites() -> list[dict]:
-
-    #读取所有卫星的最新轨道记录，每个 NORAD ID 只取最新一条。
+    # 读取所有卫星的最新轨道记录，每个 NORAD ID 只取最新一条。
     path = _find_file("tle_data.jsonl")
     if not path:
         return []

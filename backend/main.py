@@ -81,11 +81,7 @@ if _frontend_dist.is_dir():
 
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
-        if full_path.startswith("api/") or full_path == "health":
-            return {"error": "not found"}, 404
-        # 尝试返回 dist 中的静态文件
         file_path = _frontend_dist / full_path
         if file_path.is_file():
             return FileResponse(file_path)
-        # SPA 回退
         return FileResponse(_frontend_dist / "index.html", media_type="text/html")
