@@ -4,24 +4,26 @@
 
 ---
 
-A lightweight orbital monitoring script supporting dual data sources (Space-Track.org and CelesTrak) that provides:
+A lightweight orbital monitoring system with a Web Dashboard, supporting dual data sources (Space-Track.org and CelesTrak).
 
-- Monitoring of single or multiple satellites' TLE updates
-- Automatic detection of orbital changes and distinction between solution corrections and real maneuvers (based on hash comparison)
-- Output of orbital parameter changes (perigee/apogee, etc.)
-- Simplified reentry time estimation (for reference only)
-- Dual-source failover mechanism for improved reliability
+**Core capabilities**:
+
+- **Data Collection** — Automated TLE monitoring for single or multiple satellites with dual-source failover
+- **Change Classification** — Distinguishes between solution corrections and real maneuvers (hash comparison + optional xpropagator residual analysis)
+- **Web Dashboard** — real-time orbital data, trend charts, and decay status
+- **Real-time Push** — WebSocket-based live updates, pages respond automatically
+- **Decay Analysis** — Automatic orbital decay detection with tiered alerts
+- **One-click Docker** — Monitor + Dashboard
 
 ---
 
 ## Features
 
-- Intelligent scheduling system: considers both scheduled time and rate limits
-- TLE change classification: distinguishes between solution corrections and real maneuvers
+- Intelligent scheduling: respects both scheduled time and API rate limits
+- TLE change classification: distinguishes solution corrections from real maneuvers
   - Default simple threshold rules based on perigee/apogee
   - Optional high-precision residual analysis (requires xpropagator service)
-- Breakpoint recovery mechanism: automatically recovers unprocessed data from cache after program crash
-- Cold start support: new users can start monitoring without Space-Track account via CelesTrak
+- Breakpoint recovery: automatically recovers unprocessed data from cache after crash
 - Automatic state recovery on restart: restores last orbital state from historical data
 
 ---
@@ -96,9 +98,23 @@ On first run, the script will load configuration, perform cold start if needed, 
 
 ### 6. Docker Deployment
 
+Build and run with Docker Compose (multi-stage build, frontend compiled automatically):
+
 ```bash
+# Build and start (monitor + web dashboard)
 docker compose up -d
+
+# View logs
+docker compose logs -f
+
+# Web dashboard only (no data collection)
+DISABLE_MONITOR=true docker compose up -d
+
+# Stop
+docker compose down
 ```
+
+Open **http://localhost:8000** to access the dashboard.
 
 **Host file layout**:
 ```
@@ -113,13 +129,49 @@ project/
     └── celestrak_poll_cache.json
 ```
 
-> Restart container after config changes: `docker compose restart`
+> Restart container after config changes: `docker compose restart` (no rebuild needed).
+
+### 7. Local Development (without Docker)
+
+**Start backend**:
+
+```bash
+uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**Start frontend** (requires Node.js 22+ and pnpm):
+
+```bash
+cd frontend
+pnpm install
+pnpm dev
+```
+
+Frontend dev server runs on `http://localhost:5173` with API proxy to backend port 8000.
+
+---
+
+## Web Dashboard
+
+A **Vue 3 + FastAPI + WebSocket** dashboard that visualizes orbital data in real-time.
+
+| Page | Route | Description |
+|---|---|---|
+| **Dashboard** | `/` | Satellite table, search/filter, altitude chart, expandable params |
+| **TLE History** | `/history` | TLE change timeline, expand to compare diffs |
+| **Decay Status** | `/decay` | Phase pie chart, periapsis/apoapsis scatter plot, level list |
+| **Satellite Detail** | `/satellite/{noradId}` | Full params, periapsis/apoapsis trend chart, history |
+
+**Data flow**: 
+```
+spacetrack_monitor.py → data/*.jsonl → FastAPI file watcher → WebSocket → Vue 3 SPA (ECharts)
+```
 
 ---
 
 ### Business Configuration
 
-All configuration is done via `config.yaml`. The file itself contains inline documentation for every option. Edit it directly, then restart the script.
+All configuration is done via `config.yaml`. The file itself contains inline documentation for every option. Edit it directly, then restart the script
 
 ### Data Files
 

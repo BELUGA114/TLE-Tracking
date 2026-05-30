@@ -4,13 +4,16 @@
 
 ---
 
-一个支持双数据源（Space-Track.org 和 CelesTrak）的轻量级轨道监控脚本，用于：
+一个支持双数据源（Space-Track.org 和 CelesTrak）的轻量级轨道监控系统，提供 Web 仪表盘实时展示轨道数据。
 
-- 监控单颗或多颗卫星的 TLE 更新
-- 自动检测轨道变化并分辨解算修正与真实机动（基于哈希比对）
-- 输出轨道参数变化（近地点 / 远地点等）
-- 附带简化的再入时间估算（仅供参考）
-- 双源故障转移机制，提高可靠性
+**核心能力**：
+
+- **数据采集** — 自动监控单颗或多颗卫星的 TLE 更新，支持双源故障转移
+- **变化分类** — 自动分辨解算修正与真实机动（哈希比对 + 可选 xpropagator 残差分析）
+- **Web 仪表盘** — 实时展示轨道数据、趋势图表、衰降状态
+- **实时推送** — WebSocket 实时推送，页面自动响应数据更新
+- **衰降分析** — 自动检测轨道衰降趋势并分级告警
+- **Docker 一键部署** — 监控 + 仪表盘
 
 ---
 
@@ -20,10 +23,7 @@
   - 默认使用简单的近地点/远地点阈值规则
   - 可选启用高精度残差分析（依靠 xpropagator 服务）
 - 断点恢复机制：程序崩溃后自动从缓存恢复未处理数据
-- 冷启动支持：新用户无需 Space-Track 账号即可通过 CelesTrak 开始监控
 - 重启自动恢复状态：从历史数据恢复上次轨道状态
-
----
 
 ## 快速开始
 
@@ -123,18 +123,23 @@ python spacetrack_monitor.py
 
 ### 6. Docker 部署
 
-使用 Docker Compose 构建并运行（配置和数据从宿主机挂载）：
+使用 Docker Compose 一键部署监控 + Web 仪表盘（多阶段构建，自动编译前端）：
 
 ```bash
-# 构建并启动
+# 构建并启动（监控 + Web 仪表盘）
 docker compose up -d
 
 # 查看日志
 docker compose logs -f
 
+# 仅启动 Web 仪表盘（不启动数据采集）
+DISABLE_MONITOR=true docker compose up -d
+
 # 停止
 docker compose down
 ```
+
+启动后访问 **http://localhost:8000** 即可打开仪表盘。
 
 **宿主机文件布局**：
 ```
@@ -151,11 +156,47 @@ project/
 
 > 修改宿主机 `config.yaml` 后重启容器即可生效：`docker compose restart`，无需重建镜像。
 
+### 7. 本地开发（无 Docker）
+
+**启动后端**：
+
+```bash
+uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**启动前端**（需先安装 Node.js 22+ 和 pnpm）：
+
+```bash
+cd frontend
+pnpm install
+pnpm dev
+```
+
+前端开发服务器运行在 `http://localhost:5173`，API 请求自动代理到后端 8000 端口。
+
+---
+
+## Web 仪表盘
+
+基于 **Vue 3 + FastAPI + WebSocket** 的 Web 仪表盘，将轨道数据以图表和表格形式可视化，支持实时推送更新
+
+| 页面 | 路线 | 功能 |
+|---|---|---|
+| **仪表盘** | `/` | 卫星总览表格、搜索筛选、轨道高度分布图、可展开详细参数 |
+| **TLE 变化** | `/history` | TLE 更新时间线，可展开对比参数差异 |
+| **衰降状态** | `/decay` | 衰降阶段饼图、近地点/远地点散点图、等级列表 |
+| **卫星详情** | `/satellite/{noradId}` | 完整轨道参数、近地点/远地点趋势图、历史记录 |
+
+**架构**:
+```
+spacetrack_monitor.py → data/*.jsonl → FastAPI 文件监听 → WebSocket → Vue 3 SPA (ECharts)
+```
+
 ---
 
 ### 业务配置
 
-所有配置通过 `config.yaml` 完成。文件中有完整的参数说明和注释，直接编辑即可。修改后重启脚本生效。
+所有配置通过 `config.yaml` 完成。文件中有完整的参数说明和注释，直接编辑即可。修改后重启脚本生效
 
 ### 数据文件
 
