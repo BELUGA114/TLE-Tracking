@@ -89,11 +89,9 @@ def _validate_updates(updates: dict, prefix: str = "") -> list[str]:
 
 
 def _write_config(cfg: dict) -> None:
-    """原子写入 — 先写 .tmp 再替换"""
-    tmp_path = CONFIG_PATH + ".tmp"
-    with open(tmp_path, "w", encoding="utf-8") as f:
+    """直接写入（不 rename，兼容 Docker bind mount）"""
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
         yaml.safe_dump(cfg, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
-    os.replace(tmp_path, CONFIG_PATH)
 
 
 @router.get("")
