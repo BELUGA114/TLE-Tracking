@@ -106,6 +106,10 @@ tr:hover {
   background: #3a1e1e;
   color: #f87171;
 }
+.tag-decaying {
+  background: #3a2a1e;
+  color: #fbbf24;
+}
 .total-badge {
   font-size: 0.85rem;
   color: #94a3b8;

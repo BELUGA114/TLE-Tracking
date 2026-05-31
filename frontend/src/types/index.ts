@@ -1,6 +1,6 @@
 export interface Satellite {
   timestamp: string
-  change_type: "initial" | "correction" | "maneuver"
+  change_type: "initial" | "correction" | "maneuver" | "decaying"
   source: string
   norad: number
   name: string
