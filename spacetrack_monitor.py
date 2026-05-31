@@ -628,6 +628,11 @@ def classify_change(orbit: dict, prev: Optional[dict]) -> str:
     if prev is None:
         return "initial"
 
+    # 近地点低于再入预警阈值时，SGP4 传播不可靠（大气阻力主导），
+    # 残差分析和简单阈值均可能误判 → 跳过分类，标记为轨道衰降
+    if orbit.get("periapsis", 0) < REENTRY_WARNING_KM:
+        return "decaying"
+
     # 高精度路径：xpropagator 残差分析
     if XPROP_ACTIVE:
         result = classify_change_xprop(orbit, prev,
@@ -652,6 +657,7 @@ def format_change_type(change_type: str) -> str:
         "initial": "首次记录 (Initial)",
         "correction": "解算修正 (Correction)",
         "maneuver": "真实机动 (Maneuver)",
+        "decaying": "轨道衰降 (Decaying)",
     }
     return type_map.get(change_type, f"未知 ({change_type})")
 

@@ -131,6 +131,7 @@ function tagClass(type: string) {
     initial: "tag tag-initial",
     correction: "tag tag-correction",
     maneuver: "tag tag-maneuver",
+    decaying: "tag tag-decaying",
   }[type] || "tag"
 }
 
@@ -139,6 +140,7 @@ function changeLabel(type: string) {
     initial: "初始",
     correction: "修正",
     maneuver: "机动",
+    decaying: "衰降",
   }[type] || type
 }
 
