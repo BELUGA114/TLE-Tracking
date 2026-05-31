@@ -83,7 +83,7 @@ data_source:
   fallback_threshold: 3        # 主源连续失败几次后切换备源
 ```
 
-> **提示**：修改 `config.yaml` 后需要重启脚本才能生效
+> **Web 热重载**：可编辑的字段（targets、alerts、xpropagator、data_source.fallback_threshold）可在仪表盘设置页 `/settings` 修改，无需重启容器即可在下一轮询周期自动生效。详见下方的[配置参考](#配置参考)。
 
 ---
 
@@ -154,7 +154,7 @@ project/
     └── celestrak_poll_cache.json
 ```
 
-> 修改宿主机 `config.yaml` 后重启容器即可生效：`docker compose restart`，无需重建镜像。
+> **热重载**：标记 `# web:` 的字段（见下方[配置参考](#配置参考)）可在仪表盘设置页（`/settings`）在线修改，无需重启。其他字段需编辑 `config.yaml` 后执行 `docker compose restart`，无需重建镜像。
 
 ### 7. 本地开发（无 Docker）
 
@@ -194,9 +194,51 @@ spacetrack_monitor.py → data/*.jsonl → FastAPI 文件监听 → WebSocket �
 
 ---
 
-### 业务配置
+### 配置参考
 
-所有配置通过 `config.yaml` 完成。文件中有完整的参数说明和注释，直接编辑即可。修改后重启脚本生效
+所有配置通过 `config.yaml` 完成。标记 `# web:` 的字段可在仪表盘设置页（`/settings`）在线修改，下一轮询周期自动生效，无需重启。
+
+```yaml
+# HTTP 请求的 User-Agent
+user_agent: ''
+
+targets:
+  norad_ids: [25544]          # web: 监控的卫星 NORAD ID 列表
+
+schedule:
+  minute: 17                  # 调度分钟（仅 Space-Track 模式，避开 :00/:30）
+
+files:
+  data_dir: /data             # 数据目录
+  data_file: tle_data.jsonl   # 轨道数据文件
+  cache: tle_cache.json       # 断点恢复缓存
+  run_log: tle_log.jsonl      # 运行日志
+  max_log_size_mb: 10         # 日志轮转阈值
+
+alerts:
+  reentry_warning_km: 200             # web: 近地点低于此值触发再入预警
+  only_print_on_update: true           # web: 仅在 TLE 变化时打印
+  fallback_maneuver_threshold_km: 5.0  # web: 降级机动判定阈值 (km)
+
+retry:
+  login_max_failures: 5       # Space-Track 登录最大重试
+  login_pause_seconds: 1800   # 登录失败等待时间（秒）
+  request_max_retries: 3      # HTTP 请求最大重试
+  request_retry_base: 5       # 指数退避基时间（秒）
+
+xpropagator:
+  enabled: true                     # web: 启用残差分析
+  host: localhost                    # gRPC 地址
+  port: 50051                        # gRPC 端口
+  maneuver_threshold_km: 5.0         # web: 机动判定阈值 (km)
+
+data_source:
+  primary: celestrak            # 主源（celestrak / spacetrack）
+  fallback: spacetrack          # 备源（spacetrack / none）
+  fallback_threshold: 3                    # web: 连续失败 N 次切换备源
+  celestrak_interval_seconds: 7200         # 轮询间隔（速率合规）
+  use_supplemental: false                  # 使用补充 GP 数据
+```
 
 ### 数据文件
 
@@ -295,6 +337,7 @@ spacetrack_monitor.py → data/*.jsonl → FastAPI 文件监听 → WebSocket �
 - `initial` — 首次记录
 - `correction` — 解算修正（近地点/远地点变化 < 阈值）
 - `maneuver` — 真实机动（近地点/远地点变化 > 阈值）
+- `decaying` — 近地点低于再入预警阈值，SGP4 不可靠，跳过分类
 
 阈值可通过 `alerts.fallback_maneuver_threshold_km` 配置（默认 5.0 km）。
 
