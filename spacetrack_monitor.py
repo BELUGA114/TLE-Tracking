@@ -53,6 +53,10 @@ PASSWORD = os.getenv("SPACETRACK_PASS")
 
 # 业务配置（来自 config.yaml）
 
+# 配置文件路径（由 _load_config() 解析后保存，供热重载使用）
+_CONFIG_PATH: str = ""
+
+
 def _load_config() -> dict:
     """加载 YAML 配置文件，文件不存在时返回空 dict（全部使用默认值）。
 
@@ -61,6 +65,8 @@ def _load_config() -> dict:
       2. 当前工作目录下的 config.yaml（Docker 挂载场景）
       3. 脚本所在目录下的 config.yaml（本地开发场景）
     """
+    global _CONFIG_PATH
+
     candidates = []
     env_path = os.environ.get("CONFIG_PATH")
     if env_path:
@@ -74,6 +80,7 @@ def _load_config() -> dict:
             with open(path, "r", encoding="utf-8") as f:
                 cfg = yaml.safe_load(f) or {}
             logging.getLogger(__name__).debug("已加载配置文件(%s):%s", source, path)
+            _CONFIG_PATH = path
             return cfg
         except FileNotFoundError:
             continue
@@ -82,6 +89,7 @@ def _load_config() -> dict:
             raise SystemExit(1)
 
     logging.getLogger(__name__).warning("未找到配置文件，所有参数使用默认值")
+    _CONFIG_PATH = ""
     return {}
 
 _cfg = _load_config()
@@ -952,8 +960,6 @@ def process_records(
         # 获取该卫星的最新记录（已包含 _batch_count）
         record = raw_records.get(norad_id)
         if not record:
-            # 本批次中没有该卫星的新 TLE（仅写入文件）
-            write_log_message(f"[{norad_id}] 本批次无数据（过去 1 小时内未发布新 TLE）")
             continue
         
         # 提取来源标识（确认 record 不为 None 后读取）
@@ -993,9 +999,6 @@ def process_records(
         elif not ONLY_PRINT_ON_UPDATE:
             # Hash 相同，但配置为打印所有数据
             print_orbit(orbit, None)  # TLE 未变化，不显示 delta
-        else:
-            # Hash 相同，且配置为仅打印变化，只写入文件
-            write_log_message(f"[{norad_id}] {orbit['name']}：TLE 未变化（hash {cur_hash}）")
 
     # 更新缓存时间戳（全量数据已在 save_raw_records 中保存）
     # 即使没有命中目标，也要更新时间戳，避免下次启动时重复请求
@@ -1088,11 +1091,118 @@ def run_celestrak_cycle(
             last_hash[nid] = cur_hash
         elif not ONLY_PRINT_ON_UPDATE:
             print_orbit(orbit, None)
-        else:
-            # Hash 相同，且配置为仅打印变化，只写入文件
-            write_log_message(f"[{nid}] {orbit['name']}：TLE 未变化（hash {cur_hash}，来源: {record_source})")
 
     return any_success
+
+
+# ── 配置热重载 ──────────────────────────────────────────────────────────────────────
+
+_config_mtime: float = 0.0
+
+ALLOWED_RELOAD_KEYS = {
+    "targets.norad_ids",
+    "alerts.reentry_warning_km",
+    "alerts.only_print_on_update",
+    "alerts.fallback_maneuver_threshold_km",
+    "xpropagator.enabled",
+    "xpropagator.maneuver_threshold_km",
+    "data_source.fallback_threshold",
+}
+
+
+def _check_config_reload(prev_data: dict[int, dict], last_hash: dict[int, str]) -> bool:
+    """检测 config.yaml 变更并热重载允许的字段，返回 True 表示有变更"""
+    global _config_mtime
+    global NORAD_IDS, REENTRY_WARNING_KM, ONLY_PRINT_ON_UPDATE
+    global FALLBACK_MANEUVER_THRESHOLD_KM, XPROP_ENABLED, XPROP_MANEUVER_THRESHOLD_KM
+    global XPROP_ACTIVE, FALLBACK_THRESHOLD
+
+    if not _CONFIG_PATH:
+        return False
+
+    try:
+        current_mtime = os.path.getmtime(_CONFIG_PATH)
+    except OSError:
+        return False
+    if current_mtime == _config_mtime:
+        return False
+    _config_mtime = current_mtime
+
+    try:
+        with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
+            new_cfg = yaml.safe_load(f) or {}
+    except Exception:
+        log.warning("[config-reload] 读取 config.yaml 失败，跳过")
+        return False
+
+    changed = []
+
+    # norad_ids 变更
+    new_ids = new_cfg.get("targets", {}).get("norad_ids", [25544])
+    if not isinstance(new_ids, list) or not all(isinstance(v, int) for v in new_ids):
+        new_ids = [25544]
+    if sorted(new_ids) != sorted(NORAD_IDS):
+        old_set = set(NORAD_IDS)
+        new_set = set(new_ids)
+        added = new_set - old_set
+        removed = old_set - new_set
+        changed.append(f"norad_ids: {NORAD_IDS} → {new_ids}")
+        NORAD_IDS = new_ids
+        # 新增卫星 → 冷启动
+        if added:
+            cold_start_if_needed(list(added), prev_data)
+            for nid in added:
+                orbit = prev_data.get(nid)
+                if orbit:
+                    last_hash[nid] = orbit.get("tle_hash", "")
+                    print_orbit(orbit, None)
+        # 删除卫星 → 清理状态
+        for nid in removed:
+            prev_data.pop(nid, None)
+            last_hash.pop(nid, None)
+
+    # 告警字段
+    alerts = new_cfg.get("alerts", {})
+    new_reentry = int(alerts.get("reentry_warning_km", 200))
+    if new_reentry != REENTRY_WARNING_KM:
+        changed.append(f"reentry_warning_km: {REENTRY_WARNING_KM} → {new_reentry}")
+        REENTRY_WARNING_KM = new_reentry
+
+    new_only_update = bool(alerts.get("only_print_on_update", True))
+    if new_only_update != ONLY_PRINT_ON_UPDATE:
+        changed.append(f"only_print_on_update: {ONLY_PRINT_ON_UPDATE} → {new_only_update}")
+        ONLY_PRINT_ON_UPDATE = new_only_update
+
+    new_fallback_thr = float(alerts.get("fallback_maneuver_threshold_km", 5.0))
+    if new_fallback_thr != FALLBACK_MANEUVER_THRESHOLD_KM:
+        changed.append(f"fallback_maneuver_threshold_km: {FALLBACK_MANEUVER_THRESHOLD_KM} → {new_fallback_thr}")
+        FALLBACK_MANEUVER_THRESHOLD_KM = new_fallback_thr
+
+    # xpropagator 字段
+    xprop = new_cfg.get("xpropagator", {})
+    new_xprop_enabled = bool(xprop.get("enabled", True))
+    if new_xprop_enabled != XPROP_ENABLED:
+        changed.append(f"xpropagator.enabled: {XPROP_ENABLED} → {new_xprop_enabled}")
+        XPROP_ENABLED = new_xprop_enabled
+        XPROP_ACTIVE = XPROP_ENABLED and _XPROP_MODULE_OK
+
+    new_xprop_thr = float(xprop.get("maneuver_threshold_km", 5.0))
+    if new_xprop_thr != XPROP_MANEUVER_THRESHOLD_KM:
+        changed.append(f"xpropagator.maneuver_threshold_km: {XPROP_MANEUVER_THRESHOLD_KM} → {new_xprop_thr}")
+        XPROP_MANEUVER_THRESHOLD_KM = new_xprop_thr
+
+    # 数据源
+    ds = new_cfg.get("data_source", {})
+    new_fb_thr = int(ds.get("fallback_threshold", 3))
+    if new_fb_thr != FALLBACK_THRESHOLD:
+        changed.append(f"fallback_threshold: {FALLBACK_THRESHOLD} → {new_fb_thr}")
+        FALLBACK_THRESHOLD = new_fb_thr
+
+    if changed:
+        log.info("[config-reload] 检测到配置变更: %s", "; ".join(changed))
+        write_log_message(f"[config-reload] {len(changed)} 项变更已生效")
+        return True
+    return False
 
 
 # 主程序
@@ -1198,6 +1308,8 @@ def main() -> None:
                     wake_at = compute_next_wake(cache, SCHEDULED_MINUTE)
                     wait_until(wake_at)
 
+                _check_config_reload(prev_data, last_hash)
+
                 write_log_message(
                     f"[{datetime.now(timezone.utc).strftime('%H:%M:%S')}] 开始批量拉取（主源: spacetrack）"
                 )
@@ -1220,12 +1332,6 @@ def main() -> None:
                             # 注入来源标识
                             for rec in raw_records.values():
                                 rec.setdefault("_source", "spacetrack")
-                            found_ids = list(raw_records.keys())
-                            missing_ids = [nid for nid in NORAD_IDS if nid not in raw_records]
-                            if found_ids:
-                                write_log_message(f"筛选命中：{', '.join(str(i) for i in found_ids)}")
-                            if missing_ids:
-                                write_log_message(f"本批次未包含：{', '.join(str(i) for i in missing_ids)}")
                             process_records(raw_records, prev_data, last_hash, cache)
                             cache.clear_pending()
 
@@ -1289,13 +1395,21 @@ def main() -> None:
                     write_log_message(
                         f"距上次 CelesTrak 轮询 {secs_since / 60:.0f} 分钟，需等待 {wait_seconds / 60:.0f} 分钟"
                     )
-                    time.sleep(wait_seconds)
+                    # 分片等待，每 60s 检查配置变更
+                    _waited = 0
+                    while _waited < wait_seconds:
+                        chunk = min(wait_seconds - _waited, 60)
+                        time.sleep(chunk)
+                        _waited += chunk
+                        _check_config_reload(prev_data, last_hash)
                 else:
                     write_log_message(f"距上次 CelesTrak 轮询 {secs_since / 60:.0f} 分钟，满足速率限制")
             else:
                 log.info("无 CelesTrak 轮询历史记录，将立即执行首次查询")
                 write_log_message("无 CelesTrak 轮询历史记录，将立即执行首次查询")
-            
+
+            _check_config_reload(prev_data, last_hash)
+
             write_log_message(
                 f"[{datetime.now(timezone.utc).strftime('%H:%M:%S')}] 开始 CelesTrak 轮询"
             )
