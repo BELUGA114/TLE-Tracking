@@ -5,6 +5,7 @@
       <router-link to="/" :class="{ active: $route.name === 'dashboard' }">仪表盘</router-link>
       <router-link to="/history" :class="{ active: $route.name === 'history' }">TLE 变化</router-link>
       <router-link to="/decay" :class="{ active: $route.name === 'decay' }">衰降状态</router-link>
+      <router-link to="/settings" :class="{ active: $route.name === 'settings' }">设置</router-link>
     </nav>
     <div class="ws-box">
       <div class="ws-status">
