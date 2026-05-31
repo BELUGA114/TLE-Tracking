@@ -87,12 +87,13 @@ const option = computed(() => {
     },
     legend: {
       type: "scroll",
+      bottom: -5,
       textStyle: { color: "#94a3b8", fontSize: 11, overflow: "truncate" },
       pageTextStyle: { color: "#94a3b8" },
       pageIconColor: "#64748b",
       pageIconInactiveColor: "#334155",
     },
-    grid: { left: 50, right: 20, top: 50, bottom: 30 },
+    grid: { left: 50, right: 20, top: 50, bottom: 45 },
     xAxis: {
       type: "time",
       axisLabel: {
@@ -108,6 +109,7 @@ const option = computed(() => {
     },
     yAxis: {
       type: "value",
+      scale: true,
       name: "高度 (km)",
       nameTextStyle: { color: "#94a3b8", fontSize: 11 },
       axisLabel: { color: "#94a3b8", fontSize: 11 },
@@ -128,7 +130,7 @@ const option = computed(() => {
 <template>
   <div class="card chart-card">
     <h3 class="chart-title">轨道高度变化趋势</h3>
-    <div v-if="groups.length" class="chart-hint">滚轮缩放 · 拖拽平移</div>
+    <div v-if="groups.length" class="chart-hint">滚轮缩放 · 拖拽平移 · 图例筛选</div>
     <div v-else class="chart-empty">暂无数据</div>
     <VChart v-if="groups.length" class="chart" :option="option" autoresize />
   </div>

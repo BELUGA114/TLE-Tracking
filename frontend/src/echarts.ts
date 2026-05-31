@@ -4,6 +4,7 @@ import {
   GridComponent,
   TooltipComponent,
   LegendComponent,
+  DataZoomComponent,
 } from "echarts/components"
 import { CanvasRenderer } from "echarts/renderers"
 
@@ -15,5 +16,6 @@ use([
   GridComponent,
   TooltipComponent,
   LegendComponent,
+  DataZoomComponent,
   CanvasRenderer,
 ])
