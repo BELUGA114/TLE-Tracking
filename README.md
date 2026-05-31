@@ -114,6 +114,19 @@ DISABLE_MONITOR=true docker compose up -d
 docker compose down
 ```
 
+Or pull pre-built images directly from GitHub Container Registry (no local build needed):
+
+```yaml
+# docker-compose.yml
+services:
+  tle-tracking:
+    image: ghcr.io/beluga114/tle-tracking:latest
+    pull_policy: always
+    # ... rest of config
+```
+
+Pre-built multi-arch images (linux/amd64, linux/arm64) are published automatically on each version tag.
+
 Open **http://localhost:8000** to access the dashboard.
 
 **Host file layout**:

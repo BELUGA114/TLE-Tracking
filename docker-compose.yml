@@ -1,6 +1,9 @@
 services:
   tle-tracking:
+    # 本地构建（开发/调试）
     build: .
+    # 远程拉取（生产环境，标签随版本更新）
+    # image: ghcr.io/beluga114/tle-tracking:latest
     container_name: tle-tracking
     restart: unless-stopped
     ports:
