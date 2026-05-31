@@ -72,7 +72,7 @@ data_source:
   fallback_threshold: 3
 ```
 
-> Restart the script after modifying `config.yaml`.
+> **Web hot-reload**: Editable fields (marked `# web:` in [Configuration Reference](#configuration-reference)) can be modified via the Dashboard Settings page at `/settings` — changes take effect on the next polling cycle without restart. See [Configuration Reference](#configuration-reference) below.
 
 ---
 
@@ -129,7 +129,7 @@ project/
     └── celestrak_poll_cache.json
 ```
 
-> Restart container after config changes: `docker compose restart` (no rebuild needed).
+> **Hot-reload**: Fields marked `# web:` (see [Configuration Reference](#configuration-reference) below) can be changed from the Dashboard Settings page (`/settings`) without restart. For non-editable fields, edit `config.yaml` and run `docker compose restart` (no rebuild needed).
 
 ### 7. Local Development (without Docker)
 
@@ -169,9 +169,51 @@ spacetrack_monitor.py → data/*.jsonl → FastAPI file watcher → WebSocket �
 
 ---
 
-### Business Configuration
+### Configuration Reference
 
-All configuration is done via `config.yaml`. The file itself contains inline documentation for every option. Edit it directly, then restart the script
+All configuration is done via `config.yaml`. Fields marked `# web:` can be edited from the Dashboard Settings page (`/settings`) and take effect on the next polling cycle without restart.
+
+```yaml
+# HTTP User-Agent for API requests
+user_agent: ''
+
+targets:
+  norad_ids: [25544]          # web: NORAD IDs to monitor
+
+schedule:
+  minute: 17                  # Query minute (Space-Track only, avoid :00/:30)
+
+files:
+  data_dir: /data             # Data directory
+  data_file: tle_data.jsonl   # Orbital data file
+  cache: tle_cache.json       # Breakpoint recovery cache
+  run_log: tle_log.jsonl      # Runtime log
+  max_log_size_mb: 10         # Log rotation threshold
+
+alerts:
+  reentry_warning_km: 200             # web: Periapsis below this → reentry alert
+  only_print_on_update: true           # web: Only print on TLE changes
+  fallback_maneuver_threshold_km: 5.0  # web: Simple maneuver threshold (km)
+
+retry:
+  login_max_failures: 5       # Max Space-Track login retries
+  login_pause_seconds: 1800   # Wait after login failure (s)
+  request_max_retries: 3      # Max HTTP retries
+  request_retry_base: 5       # Exponential backoff base (s)
+
+xpropagator:
+  enabled: true                     # web: Enable residual analysis
+  host: localhost                    # gRPC host
+  port: 50051                        # gRPC port
+  maneuver_threshold_km: 5.0         # web: Residual threshold (km)
+
+data_source:
+  primary: celestrak            # Primary source (celestrak / spacetrack)
+  fallback: spacetrack          # Fallback source (spacetrack / none)
+  fallback_threshold: 3                    # web: Fallback after N failures
+  celestrak_interval_seconds: 7200         # Polling interval (rate-limit)
+  use_supplemental: false                  # Use supplemental GP data
+```
 
 ### Data Files
 
@@ -254,6 +296,7 @@ Orbital data is stored as JSON lines in `tle_data.jsonl`. Each record contains: 
 - `initial` — First record
 - `correction` — Perigee/apogee change < threshold
 - `maneuver` — Perigee/apogee change > threshold
+- `decaying` — Periapsis below reentry warning threshold, SGP4 unreliable, skip classification
 
 Threshold configurable via `alerts.fallback_maneuver_threshold_km` (default 5.0 km).
 
