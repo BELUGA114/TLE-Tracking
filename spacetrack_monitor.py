@@ -960,8 +960,6 @@ def process_records(
         # 获取该卫星的最新记录（已包含 _batch_count）
         record = raw_records.get(norad_id)
         if not record:
-            # 本批次中没有该卫星的新 TLE（仅写入文件）
-            write_log_message(f"[{norad_id}] 本批次无数据（过去 1 小时内未发布新 TLE）")
             continue
         
         # 提取来源标识（确认 record 不为 None 后读取）
@@ -1001,9 +999,6 @@ def process_records(
         elif not ONLY_PRINT_ON_UPDATE:
             # Hash 相同，但配置为打印所有数据
             print_orbit(orbit, None)  # TLE 未变化，不显示 delta
-        else:
-            # Hash 相同，且配置为仅打印变化，只写入文件
-            write_log_message(f"[{norad_id}] {orbit['name']}：TLE 未变化（hash {cur_hash}）")
 
     # 更新缓存时间戳（全量数据已在 save_raw_records 中保存）
     # 即使没有命中目标，也要更新时间戳，避免下次启动时重复请求
@@ -1096,9 +1091,6 @@ def run_celestrak_cycle(
             last_hash[nid] = cur_hash
         elif not ONLY_PRINT_ON_UPDATE:
             print_orbit(orbit, None)
-        else:
-            # Hash 相同，且配置为仅打印变化，只写入文件
-            write_log_message(f"[{nid}] {orbit['name']}：TLE 未变化（hash {cur_hash}，来源: {record_source})")
 
     return any_success
 
@@ -1163,6 +1155,7 @@ def _check_config_reload(prev_data: dict[int, dict], last_hash: dict[int, str]) 
                 orbit = prev_data.get(nid)
                 if orbit:
                     last_hash[nid] = orbit.get("tle_hash", "")
+                    print_orbit(orbit, None)
         # 删除卫星 → 清理状态
         for nid in removed:
             prev_data.pop(nid, None)
@@ -1339,12 +1332,6 @@ def main() -> None:
                             # 注入来源标识
                             for rec in raw_records.values():
                                 rec.setdefault("_source", "spacetrack")
-                            found_ids = list(raw_records.keys())
-                            missing_ids = [nid for nid in NORAD_IDS if nid not in raw_records]
-                            if found_ids:
-                                write_log_message(f"筛选命中：{', '.join(str(i) for i in found_ids)}")
-                            if missing_ids:
-                                write_log_message(f"本批次未包含：{', '.join(str(i) for i in missing_ids)}")
                             process_records(raw_records, prev_data, last_hash, cache)
                             cache.clear_pending()
 
