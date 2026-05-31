@@ -19,7 +19,8 @@ jobs:
 
       - name: Extract tag message
         run: |
-          MSG=$(git tag -l --format='%(contents)' ${{ github.ref_name }})
+          git fetch --tags --force
+          MSG=$(git for-each-ref --format='%(contents)' refs/tags/${{ github.ref_name }})
           echo "TAG_MESSAGE<<EOF" >> $GITHUB_ENV
           echo "$MSG" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
