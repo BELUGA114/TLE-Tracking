@@ -139,6 +139,19 @@ DISABLE_MONITOR=true docker compose up -d
 docker compose down
 ```
 
+也可直接从 GitHub Container Registry 拉取预构建镜像，无需本地编译：
+
+```yaml
+# docker-compose.yml
+services:
+  tle-tracking:
+    image: ghcr.io/beluga114/tle-tracking:latest
+    pull_policy: always
+    # ... 其余配置
+```
+
+每次发布新版本时自动构建多架构镜像（linux/amd64、linux/arm64）。
+
 启动后访问 **http://localhost:8000** 即可打开仪表盘。
 
 **宿主机文件布局**：
