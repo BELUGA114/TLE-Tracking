@@ -22,6 +22,7 @@ interface GpuPropState {
 export interface PropagationData {
   positions: Float32Array | null
   velocities: Float32Array | null
+  constantsByNorad: Map<number, any>  // norad → WasmConstants，供轨道计算复用
   count: number
 }
 
@@ -39,6 +40,7 @@ const state = reactive<GpuPropState>({
 const data: PropagationData = {
   positions: null,
   velocities: null,
+  constantsByNorad: new Map(),
   count: 0,
 }
 
@@ -55,6 +57,7 @@ let inflightRef = 0
 let refCount = 0
 let initialized = false
 let pendingSatellites: Satellite[] | null = null
+let visibilityHandler: (() => void) | null = null
 
 const MS_PER_DAY = 86400000
 
@@ -188,6 +191,17 @@ async function initPropagator() {
       lastSimTime = now
       state.isReady = true
       state.simTime = new Date(now)
+
+      visibilityHandler = () => {
+        if (document.hidden) {
+          cancelAnimationFrame(propagationRafId)
+          propagationRafId = 0
+        } else if (propagationRafId === 0) {
+          propagationRafId = requestAnimationFrame(propagationLoop)
+        }
+      }
+      document.addEventListener("visibilitychange", visibilityHandler)
+
       if (pendingSatellites) {
         registerSatellites(pendingSatellites)
       }
@@ -225,6 +239,7 @@ async function registerSatellites(sats: Satellite[]) {
 
   const elements: any[] = []
   const epochs: number[] = []
+  const norads: number[] = []
 
   for (const sat of sats) {
     if (!sat.tle1 || !sat.tle2) continue
@@ -236,6 +251,7 @@ async function registerSatellites(sats: Satellite[]) {
       )
       elements.push(el)
       epochs.push(tleEpochToJulian(sat.epoch))
+      norads.push(sat.norad)
     } catch (err) {
       console.warn(`[useGpuPropagation] 跳过 ${sat.norad}: TLE 解析失败`, err)
     }
@@ -247,24 +263,29 @@ async function registerSatellites(sats: Satellite[]) {
   data.positions = null
   data.velocities = null
   data.count = 0
+  data.constantsByNorad.clear()
 
   if (elements.length === 0) {
     return
   }
 
+  const constants = elements.map((el: any) => WasmConstants.from_elements(el))
+  for (let i = 0; i < norads.length; i++) {
+    data.constantsByNorad.set(norads[i], constants[i])
+  }
+
   if (state.isFallback || !propagator) {
-    cpuConstants = elements.map((el: any) => WasmConstants.from_elements(el))
+    cpuConstants = constants
     return
   }
 
   try {
-    const constants = elements.map((el: any) => WasmConstants.from_elements(el))
     const gpuConsts = constants.map((c: any) => WasmGpuConsts.from_constants(c))
     registeredSetId = propagator.register_const_set(gpuConsts)
   } catch (err) {
     console.error("[useGpuPropagation] 注册 GPU 传播集失败:", err)
     state.isFallback = true
-    cpuConstants = elements.map((el: any) => WasmConstants.from_elements(el))
+    cpuConstants = constants
   }
 }
 
@@ -315,6 +336,10 @@ function setTimeOffset(offsetMs: number) {
 function dispose() {
   cancelAnimationFrame(propagationRafId)
   propagationRafId = 0
+  if (visibilityHandler) {
+    document.removeEventListener("visibilitychange", visibilityHandler)
+    visibilityHandler = null
+  }
   if (registeredSetId !== null && propagator) {
     try { propagator.unregister_const_set(registeredSetId) } catch { /* ok */ }
     registeredSetId = null
@@ -324,6 +349,7 @@ function dispose() {
   tleEpochJulians = null
   data.positions = null
   data.velocities = null
+  data.constantsByNorad.clear()
   data.count = 0
   state.isReady = false
   state.isFallback = false

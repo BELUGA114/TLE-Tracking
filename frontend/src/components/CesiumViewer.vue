@@ -10,7 +10,6 @@
 import { ref, onMounted, onUnmounted, watch } from "vue"
 import type { Satellite } from "../types"
 import { useGpuPropagation } from "../composables/useGpuPropagation"
-import { WasmElements, WasmConstants } from "sgp4.gl"
 
 const props = defineProps<{
   satellites: Satellite[]
@@ -71,12 +70,8 @@ function computeOrbitPaths(satellites: Satellite[]) {
   for (const sat of satellites) {
     if (!sat.tle1 || !sat.tle2) continue
     try {
-      const el = WasmElements.from_tle(
-        new TextEncoder().encode(sat.name),
-        new TextEncoder().encode(sat.tle1),
-        new TextEncoder().encode(sat.tle2),
-      )
-      const consts = WasmConstants.from_elements(el)
+      const consts = data.constantsByNorad.get(sat.norad)
+      if (!consts) continue
 
       const meanMotion = parseFloat(sat.tle2.substring(51, 63).trim())
       const periodMinutes = meanMotion > 0 ? 1440 / meanMotion : 90
@@ -211,10 +206,6 @@ function onPreRender() {
 
   const simDate = state.simTime
 
-  // 保持 TEME 惯性系，让 Cesium 的地球自然地心旋转
-  primitivesCollection.modelMatrix = CesiumModule.Matrix4.IDENTITY
-  orbitCollection.modelMatrix = CesiumModule.Matrix4.IDENTITY
-
   // 更新每颗卫星位置
   const count = Math.min(data.count, preAllocated.length, primitivesCollection.length)
   for (let i = 0; i < count; i++) {
@@ -284,6 +275,10 @@ onMounted(async () => {
     orbitCollection = viewer.scene.primitives.add(
       new CesiumModule.PolylineCollection()
     )
+
+    // TEME 惯性系：保持 IDENTITY，让地球自然地心旋转
+    primitivesCollection.modelMatrix = CesiumModule.Matrix4.IDENTITY
+    orbitCollection.modelMatrix = CesiumModule.Matrix4.IDENTITY
 
     if (props.satellites.length > 0) {
       registerSatellites(props.satellites)
