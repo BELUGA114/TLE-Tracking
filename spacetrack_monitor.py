@@ -112,6 +112,7 @@ DATA_FILE: str = _data_path(_cfg.get("files", {}).get("data_file", "tle_data.jso
 CACHE_FILE: str = _data_path(_cfg.get("files", {}).get("cache",    "tle_cache.json"))   # 临时缓存，自动覆盖
 LOG_FILE: str = _data_path(_cfg.get("files", {}).get("run_log",  "tle_log.jsonl"))  # 运行日志（带轮转保护）
 REENTRY_WARNING_KM: int  = _cfg.get("alerts", {}).get("reentry_warning_km",   200)  # 近地点低于此值时发出再入预警
+SGP4_RELIABLE_FLOOR_KM: int = _cfg.get("alerts", {}).get("sgp4_reliable_floor_km", 350)  # SGP4 传播不可靠的高度阈值（大气阻力主导），低于此值跳过残差分析直接 fallback
 ONLY_PRINT_ON_UPDATE: bool = _cfg.get("alerts", {}).get("only_print_on_update", True)  # 仅在 TLE 变化时打印输出
 LOGIN_MAX_FAILURES: int = _cfg.get("retry", {}).get("login_max_failures",  5)  # 登录最大失败次数
 LOGIN_PAUSE_SECONDS: int = _cfg.get("retry", {}).get("login_pause_seconds", 1800)  # 登录失败后等待时间（秒）
@@ -636,13 +637,15 @@ def classify_change(orbit: dict, prev: Optional[dict]) -> str:
     if prev is None:
         return "initial"
 
-    # 近地点低于再入预警阈值时，SGP4 传播不可靠（大气阻力主导），
-    # 残差分析和简单阈值均可能误判 → 跳过分类，标记为轨道衰降
+    # 近地点低于再入预警阈值时，轨道衰降已不可逆，跳过全部分类
     if orbit.get("periapsis", 0) < REENTRY_WARNING_KM:
         return "decaying"
 
-    # 高精度路径：xpropagator 残差分析
-    if XPROP_ACTIVE:
+    # SGP4 可靠高度以下时，大气阻力主导，传播结果不可靠，仅使用简单阈值
+    periapsis_below_sgp4_floor = orbit.get("periapsis", 0) < SGP4_RELIABLE_FLOOR_KM
+
+    # 高精度路径：xpropagator 残差分析（仅在 SGP4 可靠高度以上运行）
+    if XPROP_ACTIVE and not periapsis_below_sgp4_floor:
         result = classify_change_xprop(orbit, prev,
             maneuver_threshold_km=XPROP_MANEUVER_THRESHOLD_KM,
             host=XPROP_HOST, port=XPROP_PORT,)
@@ -1102,6 +1105,7 @@ _config_mtime: float = 0.0
 ALLOWED_RELOAD_KEYS = {
     "targets.norad_ids",
     "alerts.reentry_warning_km",
+    "alerts.sgp4_reliable_floor_km",
     "alerts.only_print_on_update",
     "alerts.fallback_maneuver_threshold_km",
     "xpropagator.enabled",
@@ -1113,7 +1117,7 @@ ALLOWED_RELOAD_KEYS = {
 def _check_config_reload(prev_data: dict[int, dict], last_hash: dict[int, str]) -> bool:
     """检测 config.yaml 变更并热重载允许的字段，返回 True 表示有变更"""
     global _config_mtime
-    global NORAD_IDS, REENTRY_WARNING_KM, ONLY_PRINT_ON_UPDATE
+    global NORAD_IDS, REENTRY_WARNING_KM, SGP4_RELIABLE_FLOOR_KM, ONLY_PRINT_ON_UPDATE
     global FALLBACK_MANEUVER_THRESHOLD_KM, XPROP_ENABLED, XPROP_MANEUVER_THRESHOLD_KM
     global XPROP_ACTIVE, FALLBACK_THRESHOLD
 
@@ -1167,6 +1171,11 @@ def _check_config_reload(prev_data: dict[int, dict], last_hash: dict[int, str]) 
     if new_reentry != REENTRY_WARNING_KM:
         changed.append(f"reentry_warning_km: {REENTRY_WARNING_KM} → {new_reentry}")
         REENTRY_WARNING_KM = new_reentry
+
+    new_sgp4_floor = int(alerts.get("sgp4_reliable_floor_km", 350))
+    if new_sgp4_floor != SGP4_RELIABLE_FLOOR_KM:
+        changed.append(f"sgp4_reliable_floor_km: {SGP4_RELIABLE_FLOOR_KM} → {new_sgp4_floor}")
+        SGP4_RELIABLE_FLOOR_KM = new_sgp4_floor
 
     new_only_update = bool(alerts.get("only_print_on_update", True))
     if new_only_update != ONLY_PRINT_ON_UPDATE:
@@ -1235,8 +1244,8 @@ def main() -> None:
             log.info("xpropagator 已禁用，使用简单阈值")
 
     log.info(
-        "调度: 每小时第 %02d 分 | 再入预警: <%d km | 数据: %s | 日志: %s",
-        SCHEDULED_MINUTE, REENTRY_WARNING_KM, DATA_FILE or "关闭", LOG_FILE or "关闭",
+        "调度: 每小时第 %02d 分 | 再入预警: <%d km | SGP4 可靠下限: %d km | 数据: %s | 日志: %s",
+        SCHEDULED_MINUTE, REENTRY_WARNING_KM, SGP4_RELIABLE_FLOOR_KM, DATA_FILE or "关闭", LOG_FILE or "关闭",
     )
     print()
 

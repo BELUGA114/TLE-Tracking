@@ -12,6 +12,7 @@ files:
   max_log_size_mb: 10
 alerts:
   reentry_warning_km: 200
+  sgp4_reliable_floor_km: 350
   only_print_on_update: true
   fallback_maneuver_threshold_km: 5
 retry:
