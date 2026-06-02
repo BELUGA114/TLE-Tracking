@@ -14,6 +14,9 @@ importers:
       echarts:
         specifier: ^6.1.0
         version: 6.1.0
+      sgp4.gl:
+        specifier: 0.1.5-beta
+        version: 0.1.5-beta
       vite-plugin-static-copy:
         specifier: ^4.1.0
         version: 4.1.0(vite@7.3.3(@types/node@24.12.4))
@@ -643,6 +646,9 @@ packages:
     engines: {node: '>=18.0.0', npm: '>=8.0.0'}
     hasBin: true
 
+  sgp4.gl@0.1.5-beta:
+    resolution: {integrity: sha512-V5VtWXW2EABp1/1M4XG3TYBpusIB3zYjrr9yEgxqcOHFqMlIG1+UCi3IbmsV/7eOZEGYj9vhhGdLW7DxPq4Ahg==}
+
   source-map-js@1.2.1:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
     engines: {node: '>=0.10.0'}
@@ -1263,6 +1269,8 @@ snapshots:
       '@rollup/rollup-win32-x64-gnu': 4.60.4
       '@rollup/rollup-win32-x64-msvc': 4.60.4
       fsevents: 2.3.3
+
+  sgp4.gl@0.1.5-beta: {}
 
   source-map-js@1.2.1: {}
 

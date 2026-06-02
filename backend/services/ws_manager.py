@@ -13,6 +13,7 @@ from backend.services.data_loader import (
     load_latest_satellites,
     merge_raw_elements,
 )
+from xpropagator_client import gp_json_to_tle_lines
 
 
 class ConnectionManager:
@@ -44,8 +45,23 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
+def _ensure_tle_lines(sat: dict) -> None:
+    """如果 tle1/tle2 为空，从 _raw_elements 合成 TLE 行"""
+    if sat.get("tle1") and sat.get("tle2"):
+        return
+    raw = sat.get("_raw_elements")
+    if not raw:
+        return
+    try:
+        sat["tle1"], sat["tle2"] = gp_json_to_tle_lines(raw)
+    except Exception:
+        pass
+
+
 def _load_satellites() -> list[dict]:
     sats = load_latest_satellites()
+    for sat in sats:
+        _ensure_tle_lines(sat)
     merge_raw_elements(sats)
     return sats
 

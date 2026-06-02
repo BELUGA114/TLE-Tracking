@@ -8,7 +8,20 @@
     </div>
 
     <template v-if="is3d">
-      <CesiumViewer :satellites="satellites" />
+      <div class="cesium-wrapper">
+        <CesiumViewer :satellites="satellites" />
+        <VcrControls
+          :sim-time="propState.simTime"
+          :is-paused="propState.isPaused"
+          :prop-rate="propState.propRate"
+          :is-ready="propState.isReady"
+          :is-fallback="propState.isFallback"
+          @update:prop-rate="setPropRate"
+          @toggle-pause="togglePause"
+          @reset="resetTime"
+          @seek="setTimeOffset"
+        />
+      </div>
     </template>
 
     <template v-else>
@@ -113,11 +126,20 @@
 import { ref, computed, defineAsyncComponent } from "vue"
 import DetailItem from "../components/DetailItem.vue"
 import AltitudeChart from "../components/AltitudeChart.vue"
+import VcrControls from "../components/VcrControls.vue"
 import { useWebSocket } from "../composables/useWebSocket"
+import { useGpuPropagation } from "../composables/useGpuPropagation"
 
 const CesiumViewer = defineAsyncComponent(() => import("../components/CesiumViewer.vue"))
 
 const { satellites, historyRecords } = useWebSocket()
+const {
+  state: propState,
+  setPropRate,
+  togglePause,
+  resetTime,
+  setTimeOffset,
+} = useGpuPropagation()
 const totalRecords = computed(() => historyRecords.value.length)
 
 const is3d = ref(false)
@@ -223,5 +245,8 @@ function classificationLabel(cls: string) {
 }
 .norad-link:hover {
   text-decoration: underline;
+}
+.cesium-wrapper {
+  position: relative;
 }
 </style>
