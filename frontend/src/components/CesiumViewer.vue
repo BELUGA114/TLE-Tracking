@@ -30,7 +30,7 @@ let orbitCollection: any = null
 let preAllocated: any[] = []
 let prevDataCount = 0
 let preRenderRemove: (() => void) | null = null
-let frameCount = 0
+let lastOrbitCenterMs = 0
 
 function flyHome() {
   if (!CesiumModule || !viewer) return
@@ -44,11 +44,28 @@ function dateToJulian(d: Date): number {
   return 2440587.5 + d.getTime() / 86400000
 }
 
+// Newton-Raphson 求解开普勒方程: M = E - e·sin(E)，转为真近点角 ν
+// 返回未归化的 ν（保留圈数），避免大时间跨度下 ν 被折叠到 [−π, π]
+function meanAnomalyToTrueAnomaly(M_rad: number, ecc: number): number {
+  const M_wrapped = ((M_rad % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)
+  const rev = M_rad - M_wrapped // 整圈偏移（2π 的整数倍）
+  let E = M_wrapped
+  for (let i = 0; i < 20; i++) {
+    const dE = (M_wrapped - E + ecc * Math.sin(E)) / (1 - ecc * Math.cos(E))
+    E += dE
+    if (Math.abs(dE) < 1e-14) break
+  }
+  const sinNu = Math.sqrt(1 - ecc * ecc) * Math.sin(E) / (1 - ecc * Math.cos(E))
+  const cosNu = (Math.cos(E) - ecc) / (1 - ecc * Math.cos(E))
+  return Math.atan2(sinNu, cosNu) + rev // 还原圈数
+}
+
 function computeOrbitPaths(satellites: Satellite[]) {
   if (!CesiumModule || !orbitCollection) return
   orbitCollection.removeAll()
   if (!satellites.length) return
 
+  lastOrbitCenterMs = state.simTime.getTime()
   const simJulian = dateToJulian(state.simTime)
 
   for (const sat of satellites) {
@@ -61,38 +78,94 @@ function computeOrbitPaths(satellites: Satellite[]) {
       )
       const consts = WasmConstants.from_elements(el)
 
-      // TLE line 2, columns 52-63 (0-indexed 51-62): 平均运动 (rev/day)
       const meanMotion = parseFloat(sat.tle2.substring(51, 63).trim())
       const periodMinutes = meanMotion > 0 ? 1440 / meanMotion : 90
+      const ecc = sat.ecc || 0
 
-      const steps = 512
       const epochDate = new Date(sat.epoch)
       if (isNaN(epochDate.getTime())) continue
       const epochJulian = dateToJulian(epochDate)
-      // 当前仿真时刻距历元的分针数
       const currentMinutesSinceEpoch = (simJulian - epochJulian) * 1440
 
-      const posArray: number[] = []
-      const halfPeriod = periodMinutes / 2
-      for (let j = 0; j <= steps; j++) {
-        // 以当前时刻为中心，向前后各推半个周期
-        const minutesSinceEpoch = currentMinutesSinceEpoch - halfPeriod + (j / steps) * periodMinutes
-        try {
-          const pred = consts.propagate(minutesSinceEpoch)
-          posArray.push(
-            pred.position[0] * 1000,
-            pred.position[1] * 1000,
-            pred.position[2] * 1000,
+      // 自适应采样：LEO 等时间 16 点，HEO 等真近点角 32 点（近地点加密）
+      const useTrueAnomaly = ecc >= 0.2
+      const numSamples = useTrueAnomaly ? 32 : 16
+      const subSteps = 8
+
+      const raw: { pos: number[]; vel: number[]; dtSec: number }[] = []
+
+      if (useTrueAnomaly) {
+        const M0_deg = parseFloat(sat.tle2.substring(43, 51).trim()) || 0
+        const M0_rad = M0_deg * Math.PI / 180
+        const nRadPerMin = meanMotion * 2 * Math.PI / 1440
+        const M_sim = M0_rad + nRadPerMin * currentMinutesSinceEpoch
+        const nu_sim = meanAnomalyToTrueAnomaly(M_sim, ecc)
+
+        for (let j = 0; j <= numSamples; j++) {
+          const nu = nu_sim + 2 * Math.PI * (j / numSamples - 0.5)
+          const sinNu2 = Math.sin(nu / 2)
+          const cosNu2 = Math.cos(nu / 2)
+          let E = 2 * Math.atan2(
+            Math.sqrt((1 - ecc) / (1 + ecc)) * sinNu2,
+            cosNu2,
           )
-        } catch {
-          // 单个点传播失败则跳过
+          // atan2 折叠在 (−2π, 2π]；以 ν 为参考，用 round 确定正确圈数
+          // 对于所有 e<1 的椭圆轨道 |E−ν| < π，此修正总是正确的
+          E += Math.round((nu - E) / (2 * Math.PI)) * 2 * Math.PI
+          const M = E - ecc * Math.sin(E)
+          const minutesSinceEpoch = (M - M0_rad) / nRadPerMin
+          const pred = consts.propagate(minutesSinceEpoch)
+          raw.push({
+            pos: [pred.position[0] * 1000, pred.position[1] * 1000, pred.position[2] * 1000],
+            vel: [pred.velocity[0] * 1000, pred.velocity[1] * 1000, pred.velocity[2] * 1000],
+            dtSec: minutesSinceEpoch * 60,
+          })
+        }
+      } else {
+        const halfPeriod = Math.min(periodMinutes, 1440) / 2
+        for (let j = 0; j <= numSamples; j++) {
+          const minutesSinceEpoch = currentMinutesSinceEpoch - halfPeriod + (j / numSamples) * periodMinutes
+          const pred = consts.propagate(minutesSinceEpoch)
+          raw.push({
+            pos: [pred.position[0] * 1000, pred.position[1] * 1000, pred.position[2] * 1000],
+            vel: [pred.velocity[0] * 1000, pred.velocity[1] * 1000, pred.velocity[2] * 1000],
+            dtSec: minutesSinceEpoch * 60,
+          })
         }
       }
 
-      if (posArray.length < 9) continue // 至少 3 个点
+      if (raw.length < 2) continue
+
+      // 三次埃尔米特插值：利用 SGP4 的速度 v (m/s) 作为切线，
+      // 乘以段时长 dt (s) 得到对归一化参数 t ∈ [0,1] 的导数
+      // p(t) = h00·p0 + h10·(v0·dt) + h01·p1 + h11·(v1·dt)
+      const posArray: number[] = []
+      for (let j = 0; j < numSamples; j++) {
+        const s0 = raw[j], s1 = raw[j + 1]
+        const dt = s1.dtSec - s0.dtSec
+        const p0 = s0.pos, v0 = s0.vel
+        const p1 = s1.pos, v1 = s1.vel
+        for (let k = 0; k < subSteps; k++) {
+          const t = k / subSteps
+          const t2 = t * t, t3 = t2 * t
+          const h00 = 2*t3 - 3*t2 + 1
+          const h10 = t3 - 2*t2 + t
+          const h01 = -2*t3 + 3*t2
+          const h11 = t3 - t2
+          posArray.push(
+            h00 * p0[0] + h10 * v0[0] * dt + h01 * p1[0] + h11 * v1[0] * dt,
+            h00 * p0[1] + h10 * v0[1] * dt + h01 * p1[1] + h11 * v1[1] * dt,
+            h00 * p0[2] + h10 * v0[2] * dt + h01 * p1[2] + h11 * v1[2] * dt,
+          )
+        }
+      }
+      const last = raw[raw.length - 1]
+      posArray.push(last.pos[0], last.pos[1], last.pos[2])
+
+      if (posArray.length < 9) continue
 
       const cartesians = new Array(posArray.length / 3)
-      for (let j = 0; j < posArray.length / 3; j++) {
+      for (let j = 0; j < cartesians.length; j++) {
         cartesians[j] = new CesiumModule.Cartesian3(
           posArray[j * 3], posArray[j * 3 + 1], posArray[j * 3 + 2],
         )
@@ -137,10 +210,8 @@ function onPreRender() {
   }
 
   const simDate = state.simTime
-  const julian = CesiumModule.JulianDate.fromDate(simDate)
 
   // 保持 TEME 惯性系，让 Cesium 的地球自然地心旋转
-  // modelMatrix 重置为恒等矩阵，不做 TEME→Pseudo-Fixed 变换
   primitivesCollection.modelMatrix = CesiumModule.Matrix4.IDENTITY
   orbitCollection.modelMatrix = CesiumModule.Matrix4.IDENTITY
 
@@ -155,12 +226,10 @@ function onPreRender() {
     primitivesCollection.get(i).position = pos
   }
 
-  // 轨道线随仿真推进漂移，每 300 帧重算对齐
-  if (count > 0 && frameCount % 300 === 299) {
+  // 仿真时间偏离轨道中心超过 10 分钟时重算
+  if (count > 0 && Math.abs(simDate.getTime() - lastOrbitCenterMs) > 600000) {
     computeOrbitPaths(props.satellites)
   }
-
-  frameCount++
 }
 
 onMounted(async () => {
