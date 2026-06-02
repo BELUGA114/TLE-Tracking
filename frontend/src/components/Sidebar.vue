@@ -32,6 +32,9 @@ const statusLabel = computed(() => ({
 <style scoped>
 .sidebar {
   width: 220px;
+  height: 100vh;
+  position: sticky;
+  top: 0;
   background: #1e293b;
   padding: 1.5rem;
   border-right: 1px solid #334155;
