@@ -16,6 +16,7 @@ CONFIG_PATH = os.path.abspath(CONFIG_PATH)
 ALLOWED_PATHS = {
     "targets.norad_ids",
     "alerts.reentry_warning_km",
+    "alerts.sgp4_reliable_floor_km",
     "alerts.only_print_on_update",
     "alerts.fallback_maneuver_threshold_km",
     "xpropagator.enabled",
@@ -78,7 +79,8 @@ def _validate_updates(updates: dict, prefix: str = "") -> list[str]:
             if key in ("norad_ids",):
                 if not isinstance(value, list) or not all(isinstance(v, int) for v in value):
                     illegal.append(f"{path} (必须是整数列表)")
-            elif key in ("reentry_warning_km", "fallback_maneuver_threshold_km",
+            elif key in ("reentry_warning_km", "sgp4_reliable_floor_km",
+                        "fallback_maneuver_threshold_km",
                         "maneuver_threshold_km", "fallback_threshold"):
                 if not isinstance(value, (int, float)):
                     illegal.append(f"{path} (必须是数字)")

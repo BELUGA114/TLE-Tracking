@@ -31,6 +31,13 @@
         </div>
         <div class="row">
           <label>
+            <span>SGP4 可靠高度下限 (km)</span>
+            <span class="hint">近地点低于此值时跳过残差分析，仅使用简单阈值判定</span>
+          </label>
+          <input v-model.number="form.alerts_sgp4_reliable_floor_km" type="number" class="input input-sm" />
+        </div>
+        <div class="row">
+          <label>
             <span>降级机动阈值 (km)</span>
             <span class="hint">xpropagator 不可用时，近地点/远地点变化超过此值视为机动</span>
           </label>
@@ -116,6 +123,7 @@ import { reactive, ref, onMounted } from "vue"
 interface ConfigForm {
   norad_ids_str: string
   alerts_reentry_warning_km: number
+  alerts_sgp4_reliable_floor_km: number
   alerts_only_print_on_update: boolean
   alerts_fallback_threshold: number
   xprop_enabled: boolean
@@ -131,6 +139,7 @@ const error = ref("")
 const form = reactive<ConfigForm>({
   norad_ids_str: "",
   alerts_reentry_warning_km: 200,
+  alerts_sgp4_reliable_floor_km: 350,
   alerts_only_print_on_update: true,
   alerts_fallback_threshold: 5.0,
   xprop_enabled: true,
@@ -148,6 +157,7 @@ async function loadConfig() {
 
     form.norad_ids_str = (cfg.targets?.norad_ids || []).join(", ")
     form.alerts_reentry_warning_km = cfg.alerts?.reentry_warning_km ?? 200
+    form.alerts_sgp4_reliable_floor_km = cfg.alerts?.sgp4_reliable_floor_km ?? 350
     form.alerts_only_print_on_update = cfg.alerts?.only_print_on_update ?? true
     form.alerts_fallback_threshold = cfg.alerts?.fallback_maneuver_threshold_km ?? 5.0
     form.xprop_enabled = cfg.xpropagator?.enabled ?? true
@@ -185,6 +195,7 @@ async function save() {
     targets: { norad_ids },
     alerts: {
       reentry_warning_km: form.alerts_reentry_warning_km,
+      sgp4_reliable_floor_km: form.alerts_sgp4_reliable_floor_km,
       only_print_on_update: form.alerts_only_print_on_update,
       fallback_maneuver_threshold_km: form.alerts_fallback_threshold,
     },
