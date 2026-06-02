@@ -53,6 +53,7 @@ frontend/.vite/
 
 # ===== Claude =====
 CLAUDE.md
+.claude/
 
 # ===== 辅助文档（调研笔记、规划等，不纳入版本管理）=====
 docs/
