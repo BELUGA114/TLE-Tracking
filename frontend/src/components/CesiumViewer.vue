@@ -180,7 +180,12 @@ function rebuildPoints(count: number) {
   primitivesCollection.removeAll()
   preAllocated = []
   for (let i = 0; i < count; i++) {
-    const pos = new CesiumModule.Cartesian3(0, 0, 0)
+    // 优先使用当前传播结果初始化位置，避免在地心闪烁一帧
+    const o = i * 3
+    const x = data.positions ? data.positions[o] : 0
+    const y = data.positions ? data.positions[o + 1] : 0
+    const z = data.positions ? data.positions[o + 2] : 0
+    const pos = new CesiumModule.Cartesian3(x, y, z)
     preAllocated.push(pos)
     primitivesCollection.add({
       position: pos,
@@ -306,7 +311,15 @@ onUnmounted(() => {
 
 watch(
   () => props.satellites,
-  (sats) => {
+  (sats, oldSats) => {
+    const old = oldSats || []
+    // 未变时跳过重注册（比较 NORAD ID 和 TLE 哈希）
+    if (
+      old.length === sats.length &&
+      old.every((o, i) => o.norad === sats[i].norad && o.tle_hash === sats[i].tle_hash)
+    ) {
+      return
+    }
     registerSatellites(sats)
     computeOrbitPaths(sats)
   },

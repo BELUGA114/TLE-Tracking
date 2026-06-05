@@ -123,7 +123,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, defineAsyncComponent } from "vue"
+import { ref, computed, watch, defineAsyncComponent } from "vue"
 import DetailItem from "../components/DetailItem.vue"
 import AltitudeChart from "../components/AltitudeChart.vue"
 import VcrControls from "../components/VcrControls.vue"
@@ -143,9 +143,22 @@ const {
 const totalRecords = computed(() => historyRecords.value.length)
 
 const is3d = ref(false)
+const wasAutoPaused = ref(false)
+
 function toggleView() {
   is3d.value = !is3d.value
 }
+
+// 2D 列表模式下暂停 GPU 传播节省资源
+watch(is3d, (v) => {
+  if (!v && !propState.isPaused) {
+    togglePause()
+    wasAutoPaused.value = true
+  } else if (v && wasAutoPaused.value && propState.isPaused) {
+    togglePause()
+    wasAutoPaused.value = false
+  }
+})
 
 const searchQuery = ref("")
 const filteredSatellites = computed(() => {

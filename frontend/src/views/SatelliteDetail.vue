@@ -77,11 +77,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue"
+import { ref, computed, onMounted } from "vue"
 import { useRoute } from "vue-router"
 import DetailItem from "../components/DetailItem.vue"
 import TrendChart from "../components/TrendChart.vue"
 import { useWebSocket } from "../composables/useWebSocket"
+import { fetchSatelliteHistory } from "../api"
+import type { HistoryRecord } from "../types"
 
 const route = useRoute()
 const noradId = Number(route.params.noradId)
@@ -90,9 +92,18 @@ const { satellites, historyRecords, loading } = useWebSocket()
 
 const sat = computed(() => satellites.value.find((s) => s.norad === noradId))
 
-const satelliteHistory = computed(() =>
-  historyRecords.value.filter((r) => r.norad === noradId)
-)
+// 优先通过 REST API 获取该卫星的完整变化历史，避免 WebSocket 仅推送全局最近 100 条的问题
+const satelliteHistory = ref<HistoryRecord[]>([])
+
+onMounted(async () => {
+  try {
+    const res = await fetchSatelliteHistory(noradId, 200)
+    satelliteHistory.value = res.records
+  } catch {
+    // REST API 不可用时回退到 WebSocket 全局历史
+    satelliteHistory.value = historyRecords.value.filter((r) => r.norad === noradId)
+  }
+})
 
 function tagClass(type: string) {
   return {
