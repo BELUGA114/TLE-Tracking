@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 
 from fastapi import WebSocket
@@ -14,6 +15,8 @@ from backend.services.data_loader import (
     merge_raw_elements,
 )
 from xpropagator_client import gp_json_to_tle_lines
+
+log = logging.getLogger(__name__)
 
 
 class ConnectionManager:
@@ -55,7 +58,7 @@ def _ensure_tle_lines(sat: dict) -> None:
     try:
         sat["tle1"], sat["tle2"] = gp_json_to_tle_lines(raw)
     except Exception:
-        pass
+        log.warning("TLE 行合成失败 [%s]", sat.get("norad", "?"))
 
 
 def _load_satellites() -> list[dict]:
@@ -100,7 +103,7 @@ async def send_initial(ws: WebSocket) -> None:
             ensure_ascii=False,
         ))
     except Exception:
-        pass
+        log.warning("send_initial: satellites 发送失败", exc_info=True)
 
     try:
         records = _load_history()
@@ -109,7 +112,7 @@ async def send_initial(ws: WebSocket) -> None:
             ensure_ascii=False,
         ))
     except Exception:
-        pass
+        log.warning("send_initial: history 发送失败", exc_info=True)
 
     try:
         results = _load_decay()
@@ -118,7 +121,7 @@ async def send_initial(ws: WebSocket) -> None:
             ensure_ascii=False,
         ))
     except Exception:
-        pass
+        log.warning("send_initial: decay 发送失败", exc_info=True)
 
 
 async def broadcast_satellites() -> None:
@@ -159,22 +162,25 @@ async def file_watcher() -> None:
 
     while True:
         await asyncio.sleep(3)
-        changed: list[str] = []
-        for name in files:
-            path = os.path.join(data_dir, name)
-            mtime = os.path.getmtime(path) if os.path.exists(path) else 0
-            if mtime != files[name]:
-                files[name] = mtime
-                changed.append(name)
+        try:
+            changed: list[str] = []
+            for name in files:
+                path = os.path.join(data_dir, name)
+                mtime = os.path.getmtime(path) if os.path.exists(path) else 0
+                if mtime != files[name]:
+                    files[name] = mtime
+                    changed.append(name)
 
-        if not changed or not manager.count:
-            continue
+            if not changed or not manager.count:
+                continue
 
-        tasks = []
-        if "tle_data.jsonl" in changed:
-            tasks.append(broadcast_satellites())
-            tasks.append(broadcast_history())
-        if "decay_state.json" in changed:
-            tasks.append(broadcast_decay())
-        if tasks:
-            await asyncio.gather(*tasks)
+            tasks = []
+            if "tle_data.jsonl" in changed:
+                tasks.append(broadcast_satellites())
+                tasks.append(broadcast_history())
+            if "decay_state.json" in changed:
+                tasks.append(broadcast_decay())
+            if tasks:
+                await asyncio.gather(*tasks)
+        except Exception:
+            log.error("file_watcher 异常，3 秒后重试", exc_info=True)

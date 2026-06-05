@@ -54,6 +54,7 @@ let lastSimTime = 0
 let propagatorInitPromise: Promise<void> | null = null
 let propagationRafId = 0
 let inflightRef = 0
+let gpuConsecutiveFailures = 0
 let refCount = 0
 let initialized = false
 let pendingSatellites: Satellite[] | null = null
@@ -104,6 +105,8 @@ function propagateCpu(simMs: number, constsList: any[]) {
 }
 
 let cpuConstants: any[] = []
+const GPU_TIMEOUT_MS = 500
+const GPU_MAX_FAILURES = 3
 
 function propagationLoop() {
   if (!initialized) return
@@ -140,29 +143,45 @@ function propagationLoop() {
     times[i] = (simJulian - tleEpochJulians![i]) * 1440
   }
 
-  propagator.propagate_registered_f32(registeredSetId, times).then((flat: Float32Array) => {
-    const satCount = flat.length / 6
-    if (data.positions === null || data.positions.length !== satCount * 3) {
-      data.positions = new Float32Array(satCount * 3)
-      data.velocities = new Float32Array(satCount * 3)
-    }
-    const pos = data.positions
-    const vel = data.velocities!
-    data.count = satCount
-    for (let i = 0; i < satCount; i++) {
-      const o = i * 6, d = i * 3
-      pos[d] = flat[o] * 1000
-      pos[d + 1] = flat[o + 1] * 1000
-      pos[d + 2] = flat[o + 2] * 1000
-      vel[d] = flat[o + 3] * 1000
-      vel[d + 1] = flat[o + 4] * 1000
-      vel[d + 2] = flat[o + 5] * 1000
-    }
-    inflightRef--
-  }).catch((err: any) => {
-    console.error("[useGpuPropagation] GPU 传播失败:", err)
-    inflightRef--
-  })
+  // 超时保护：GPU 挂死时自动触发 CPU 回退
+  const gpuPromise = propagator.propagate_registered_f32(registeredSetId, times)
+  const timeoutPromise = new Promise<Float32Array>((_, reject) =>
+    setTimeout(() => reject(new Error("GPU 传播超时")), GPU_TIMEOUT_MS),
+  )
+
+  Promise.race([gpuPromise, timeoutPromise])
+    .then((flat: Float32Array) => {
+      gpuConsecutiveFailures = 0
+      const satCount = flat.length / 6
+      if (data.positions === null || data.positions.length !== satCount * 3) {
+        data.positions = new Float32Array(satCount * 3)
+        data.velocities = new Float32Array(satCount * 3)
+      }
+      const pos = data.positions
+      const vel = data.velocities!
+      data.count = satCount
+      for (let i = 0; i < satCount; i++) {
+        const o = i * 6, d = i * 3
+        pos[d] = flat[o] * 1000
+        pos[d + 1] = flat[o + 1] * 1000
+        pos[d + 2] = flat[o + 2] * 1000
+        vel[d] = flat[o + 3] * 1000
+        vel[d + 1] = flat[o + 4] * 1000
+        vel[d + 2] = flat[o + 5] * 1000
+      }
+      inflightRef--
+    })
+    .catch((err: any) => {
+      console.error("[useGpuPropagation] GPU 传播失败:", err)
+      gpuConsecutiveFailures++
+      if (gpuConsecutiveFailures >= GPU_MAX_FAILURES) {
+        state.error = "GPU 连续失败，已回退到 CPU"
+        state.isFallback = true
+        cpuConstants = [...data.constantsByNorad.values()]
+        console.warn("[useGpuPropagation] 回退到 CPU")
+      }
+      inflightRef--
+    })
 
   propagationRafId = requestAnimationFrame(propagationLoop)
 }
@@ -360,6 +379,7 @@ function dispose() {
   propagatorInitPromise = null
   initialized = false
   inflightRef = 0
+  gpuConsecutiveFailures = 0
   pendingSatellites = null
 }
 

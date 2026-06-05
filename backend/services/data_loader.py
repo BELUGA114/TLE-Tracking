@@ -79,6 +79,7 @@ def load_latest_satellites() -> list[dict]:
                 try:
                     entry = json.loads(line)
                 except json.JSONDecodeError:
+                    log.warning("JSONL 行解析失败 [%s]: %.80s", path, line)
                     continue
                 norad = entry.get("norad")
                 if norad is not None:
@@ -109,6 +110,7 @@ def load_satellite_history(norad_id: int, limit: int = 100) -> list[dict]:
                 try:
                     entry = json.loads(line)
                 except json.JSONDecodeError:
+                    log.warning("JSONL 行解析失败 [%s]: %.80s", path, line)
                     continue
                 if entry.get("norad") == norad_id:
                     records.append(entry)
@@ -139,6 +141,7 @@ def load_change_history(limit: int = 50) -> list[dict]:
                 try:
                     entry = json.loads(line)
                 except json.JSONDecodeError:
+                    log.warning("JSONL 行解析失败 [%s]: %.80s", path, line)
                     continue
                 records.append(entry)
     except OSError as e:
@@ -182,6 +185,7 @@ def load_run_log(limit: int = 100) -> list[dict]:
                 try:
                     entry = json.loads(line)
                 except json.JSONDecodeError:
+                    log.warning("JSONL 行解析失败 [%s]: %.80s", path, line)
                     continue
                 records.append(entry)
     except OSError as e:

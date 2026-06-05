@@ -2,12 +2,26 @@
 
 from __future__ import annotations
 
+import logging
 import os
 
 import yaml
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
+log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/config", tags=["config"])
+security = HTTPBearer(auto_error=False)
+
+# 可选 API 密钥：设置 DASHBOARD_API_KEY 环境变量即可启用认证
+_DASHBOARD_API_KEY = os.environ.get("DASHBOARD_API_KEY", "")
+
+
+def _require_auth(credentials: HTTPAuthorizationCredentials | None = Depends(security)):
+    if not _DASHBOARD_API_KEY:
+        return  # 未配置密钥时允许所有请求
+    if credentials is None or credentials.credentials != _DASHBOARD_API_KEY:
+        raise HTTPException(401, "未授权：需要有效的 API 密钥")
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "config.yaml")
 CONFIG_PATH = os.path.abspath(CONFIG_PATH)
@@ -104,7 +118,7 @@ async def get_config():
 
 
 @router.put("")
-async def update_config(updates: dict):
+async def update_config(updates: dict, _auth=Depends(_require_auth)):
     """更新允许的配置字段，合并写入 config.yaml"""
     if not updates:
         raise HTTPException(400, "请求体为空")
