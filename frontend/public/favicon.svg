@@ -1,4 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="2 2 28 28">
+	<desc>
+		Source: Microsoft Fluent UI Emoji
+		License: MIT (https://github.com/microsoft/fluentui-emoji/blob/main/LICENSE)
+		Note: No attribution required for visual rendering, commercial use is allowed.
+	</desc>
 	<path d="M0 0h32v32H0z" fill="none" />
 	<g fill="none">
 		<path fill="#635994" d="M14.368 5.874L10.662 3.3a.883.883 0 0 0-1.22.22l-7.67 11.045a.877.877 0 0 0 .219 1.218l3.706 2.575a.877.877 0 0 0 1.219-.22l7.671-11.045a.877.877 0 0 0-.22-1.219m2.313 20.102l3.706 2.574a.87.87 0 0 0 1.214-.212l7.671-11.045a.877.877 0 0 0-.22-1.219L25.346 13.5a.877.877 0 0 0-1.218.22L16.46 24.757a.877.877 0 0 0 .22 1.22" />
