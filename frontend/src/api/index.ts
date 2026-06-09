@@ -20,6 +20,6 @@ export function fetchDecayStatus(): Promise<DecayResponse> {
   return fetchJSON(`${BASE}/decay`)
 }
 
-export function fetchHistory(limit = 100): Promise<HistoryResponse> {
+export function fetchHistory(limit = 500): Promise<HistoryResponse> {
   return fetchJSON(`${BASE}/history/changes?limit=${limit}`)
 }

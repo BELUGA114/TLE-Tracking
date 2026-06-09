@@ -8,7 +8,7 @@ router = APIRouter(prefix="/api/history", tags=["history"])
 
 
 @router.get("/changes")
-async def get_changes(limit: int = Query(50, ge=1, le=500)):
+async def get_changes(limit: int = Query(500, ge=1, le=5000)):
     """返回最近的 TLE 变化事件"""
     records = load_change_history(limit=limit)
     merge_raw_elements(records)

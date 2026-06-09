@@ -51,7 +51,7 @@ def _load_satellites() -> list[dict]:
 
 
 def _load_history() -> list[dict]:
-    records = load_change_history(limit=100)
+    records = load_change_history(limit=500)
     merge_raw_elements(records)
     return records
 
