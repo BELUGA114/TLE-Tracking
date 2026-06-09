@@ -83,15 +83,35 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from "vue"
+import { ref, computed, watch, onMounted } from "vue"
 import type { HistoryRecord } from "../types"
 import DetailItem from "../components/DetailItem.vue"
 import TrendChart from "../components/TrendChart.vue"
 import { useWebSocket } from "../composables/useWebSocket"
+import { fetchHistory } from "../api"
 
-const { historyRecords: records } = useWebSocket()
+const { historyRecords: wsRecords } = useWebSocket()
+// 页面用本地 ref，方便 REST API 覆盖更多数据
+const records = ref<HistoryRecord[]>([])
 const visible = ref<Record<number, boolean>>({})
 const expanded = ref<Record<string, boolean>>({})
+
+// 首次渲染用 WebSocket 数据（立即可用），随后 REST API 拉取更多历史
+onMounted(async () => {
+  records.value = wsRecords.value
+  try {
+    const res = await fetchHistory(500)
+    records.value = res.changes
+  } catch {
+    // 保持 WebSocket 数据
+  }
+})
+
+// WebSocket 推送到达时也更新（增量刷新）
+watch(
+  () => wsRecords.value,
+  (latest) => { records.value = latest },
+)
 
 function recordId(r: HistoryRecord): string {
   return r.tle_hash || `${r.norad}-${r.epoch}`
