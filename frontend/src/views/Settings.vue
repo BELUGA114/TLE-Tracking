@@ -163,8 +163,9 @@ async function loadConfig() {
     form.xprop_enabled = cfg.xpropagator?.enabled ?? true
     form.xprop_maneuver_threshold = cfg.xpropagator?.maneuver_threshold_km ?? 5.0
     form.ds_fallback_threshold = cfg.data_source?.fallback_threshold ?? 3
-  } catch (e: any) {
-    error.value = `加载配置失败: ${e.message}`
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    error.value = `加载配置失败: ${msg}`
   } finally {
     loading.value = false
   }
@@ -219,8 +220,9 @@ async function save() {
       throw new Error(body.detail || `HTTP ${resp.status}`)
     }
     saved.value = true
-  } catch (e: any) {
-    error.value = `保存失败: ${e.message}`
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    error.value = `保存失败: ${msg}`
   } finally {
     saving.value = false
   }

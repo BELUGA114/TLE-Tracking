@@ -8,6 +8,11 @@ import wasmInit, {
 } from "sgp4.gl"
 import wasmUrl from "sgp4.gl/wasm?url"
 
+// sgp4.gl 导出为 WASM 绑定值而非 TS class，需定义实例类型
+type WasmConstantsInst = ReturnType<typeof WasmConstants["from_elements"]>
+type WasmElementsInst = ReturnType<typeof WasmElements["from_tle"]>
+type GpuPropagatorInst = Awaited<ReturnType<typeof GpuPropagator["new_for_web"]>>
+
 interface GpuPropState {
   isReady: boolean
   isFallback: boolean
@@ -22,7 +27,7 @@ interface GpuPropState {
 export interface PropagationData {
   positions: Float32Array | null
   velocities: Float32Array | null
-  constantsByNorad: Map<number, any>  // norad → WasmConstants，供轨道计算复用
+  constantsByNorad: Map<number, WasmConstantsInst>  // norad → WasmConstants，供轨道计算复用
   count: number
 }
 
@@ -45,7 +50,7 @@ const data: PropagationData = {
 }
 
 // 内部非响应式状态
-let propagator: any = null
+let propagator: GpuPropagatorInst | null = null
 let registeredSetId: number | null = null
 let tleEpochJulians: Float64Array | null = null
 let sessionStartSimTime = 0
@@ -76,7 +81,7 @@ function getSimTimeMs(): number {
   return sessionStartSimTime + (Date.now() - sessionStartWallMs) * state.propRate
 }
 
-function propagateCpu(simMs: number, constsList: any[]) {
+function propagateCpu(simMs: number, constsList: WasmConstantsInst[]) {
   const simJulian = dateToJulian(new Date(simMs))
   const count = constsList.length
   if (data.positions === null || data.positions.length < count * 3) {
@@ -104,7 +109,7 @@ function propagateCpu(simMs: number, constsList: any[]) {
   }
 }
 
-let cpuConstants: any[] = []
+let cpuConstants: WasmConstantsInst[] = []
 const GPU_TIMEOUT_MS = 500
 const GPU_MAX_FAILURES = 3
 
@@ -171,7 +176,7 @@ function propagationLoop() {
       }
       inflightRef--
     })
-    .catch((err: any) => {
+    .catch((err: unknown) => {
       console.error("[useGpuPropagation] GPU 传播失败:", err)
       gpuConsecutiveFailures++
       if (gpuConsecutiveFailures >= GPU_MAX_FAILURES) {
@@ -225,8 +230,9 @@ async function initPropagator() {
         registerSatellites(pendingSatellites)
       }
       propagationRafId = requestAnimationFrame(propagationLoop)
-    } catch (err: any) {
-      state.error = `sgp4.gl 初始化失败: ${err.message || err}`
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      state.error = `sgp4.gl 初始化失败: ${msg}`
       console.error("[useGpuPropagation]", state.error)
     }
   })()
@@ -256,7 +262,7 @@ async function registerSatellites(sats: Satellite[]) {
     return
   }
 
-  const elements: any[] = []
+  const elements: WasmElementsInst[] = []
   const epochs: number[] = []
   const norads: number[] = []
 
@@ -288,7 +294,7 @@ async function registerSatellites(sats: Satellite[]) {
     return
   }
 
-  const constants = elements.map((el: any) => WasmConstants.from_elements(el))
+  const constants = elements.map((el: WasmElementsInst) => WasmConstants.from_elements(el))
   for (let i = 0; i < norads.length; i++) {
     data.constantsByNorad.set(norads[i], constants[i])
   }
@@ -299,7 +305,7 @@ async function registerSatellites(sats: Satellite[]) {
   }
 
   try {
-    const gpuConsts = constants.map((c: any) => WasmGpuConsts.from_constants(c))
+    const gpuConsts = constants.map((c: WasmConstantsInst) => WasmGpuConsts.from_constants(c))
     registeredSetId = propagator.register_const_set(gpuConsts)
   } catch (err) {
     console.error("[useGpuPropagation] 注册 GPU 传播集失败:", err)

@@ -42,7 +42,15 @@ const groups = computed<SatGroup[]>(() => {
 })
 
 const option = computed(() => {
-  const series: any[] = []
+  interface TrendSeriesItem {
+    name: string
+    type: "line"
+    data: [number, number][]
+    symbol: "none"
+    lineStyle: { width: number; type?: string; color: string }
+    itemStyle: { color: string }
+  }
+  const series: TrendSeriesItem[] = []
   groups.value.forEach((g, i) => {
     const color = COLORS[i % COLORS.length]
     const epochs = g.points.map((p) => p.epoch)
@@ -72,7 +80,7 @@ const option = computed(() => {
       backgroundColor: "#1e293b",
       borderColor: "#334155",
       textStyle: { color: "#e2e8f0", fontSize: 12 },
-      formatter: (params: any[]) => {
+      formatter: (params: { seriesName: string; value: [number, number] }[]) => {
         if (!params.length) return ""
         const date = new Date(params[0].value[0]).toISOString().slice(0, 19)
         let html = `<div style="margin-bottom:4px">${date}</div>`
