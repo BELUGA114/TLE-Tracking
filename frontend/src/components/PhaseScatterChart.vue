@@ -46,7 +46,7 @@ const option = computed(() => {
       backgroundColor: "#1e293b",
       borderColor: "#334155",
       textStyle: { color: "#e2e8f0", fontSize: 12 },
-      formatter: (params: any) => {
+      formatter: (params: { seriesName: string; value: [number, number] }) => {
         return `${params.seriesName}<br>近地点: ${params.value[0].toFixed(1)} km<br>远地点: ${params.value[1].toFixed(1)} km`
       },
     },

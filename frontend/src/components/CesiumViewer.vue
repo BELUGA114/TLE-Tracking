@@ -9,6 +9,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from "vue"
 import type { Satellite } from "../types"
+import type * as Cesium from "cesium"
 import { useGpuPropagation } from "../composables/useGpuPropagation"
 
 const props = defineProps<{
@@ -22,11 +23,11 @@ const fallback = ref(false)
 
 const { state, data, registerSatellites } = useGpuPropagation()
 
-let CesiumModule: any = null
-let viewer: any = null
-let primitivesCollection: any = null
-let orbitCollection: any = null
-let preAllocated: any[] = []
+let CesiumModule: typeof Cesium | null = null
+let viewer: Cesium.Viewer | null = null
+let primitivesCollection: Cesium.PointPrimitiveCollection | null = null
+let orbitCollection: Cesium.PolylineCollection | null = null
+let preAllocated: Cesium.Cartesian3[] = []
 let prevDataCount = 0
 let preRenderRemove: (() => void) | null = null
 let lastOrbitCenterMs = 0
@@ -251,7 +252,13 @@ onMounted(async () => {
     viewer.scene.backgroundColor = CesiumModule.Color.fromCssColorString("#0b1526")
     viewer.scene.globe.baseColor = CesiumModule.Color.fromCssColorString("#1a2a40")
 
-    const controller = viewer.scene.screenSpaceCameraController
+    // Cesium 1.141 类型声明缺少数个运行时属性
+    type CameraCtl = Cesium.ScreenSpaceCameraController & {
+      invertZoom: boolean
+      minimumZoomRate: number
+      maximumZoomRate: number
+    }
+    const controller = viewer.scene.screenSpaceCameraController as CameraCtl
     controller.enableCollisionDetection = true
     controller.minimumZoomDistance = 500000
     controller.maximumZoomDistance = 100000000
@@ -262,7 +269,7 @@ onMounted(async () => {
     viewer.scene.mode = CesiumModule.SceneMode.SCENE3D
     viewer.scene.morphTo3D(0)
 
-    viewer.scene.renderError.addEventListener((_scene: any, err: Error) => {
+    viewer.scene.renderError.addEventListener((_scene: Cesium.Scene, err: Error) => {
       console.warn("[Cesium] 渲染错误:", err.message)
       return true
     })
@@ -282,8 +289,8 @@ onMounted(async () => {
     )
 
     // TEME 惯性系：保持 IDENTITY，让地球自然地心旋转
-    primitivesCollection.modelMatrix = CesiumModule.Matrix4.IDENTITY
-    orbitCollection.modelMatrix = CesiumModule.Matrix4.IDENTITY
+    if (primitivesCollection) primitivesCollection.modelMatrix = CesiumModule.Matrix4.IDENTITY
+    if (orbitCollection) orbitCollection.modelMatrix = CesiumModule.Matrix4.IDENTITY
 
     if (props.satellites.length > 0) {
       registerSatellites(props.satellites)
@@ -293,9 +300,10 @@ onMounted(async () => {
     preRenderRemove = viewer.scene.preRender.addEventListener(onPreRender)
 
     loading.value = false
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
     console.error("[Cesium] 启动失败:", err)
-    error.value = `CesiumJS 启动失败: ${err.message || err}`
+    error.value = `CesiumJS 启动失败: ${msg}`
     loading.value = false
   }
 })
