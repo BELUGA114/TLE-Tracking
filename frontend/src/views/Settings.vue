@@ -84,6 +84,38 @@
         </div>
       </fieldset>
 
+      <fieldset>
+        <legend>新对象发现</legend>
+        <p style="color: var(--color-text-muted); font-size: 0.8rem; margin-bottom: 0.75rem;">
+          每天 17:10 UTC 检查 Space-Track SATCAT 新编目 PAYLOAD 对象，通过 Telegram 推送通知。
+        </p>
+        <div class="row checkbox-row">
+          <label>
+            <span>启用新对象发现</span>
+            <span class="hint">打开后总开关生效，推送所有新 PAYLOAD 编目</span>
+          </label>
+          <input v-model="form.nod_enabled" type="checkbox" />
+        </div>
+        <div class="row checkbox-row">
+          <label>
+            <span>每日摘要</span>
+            <span class="hint">无新对象时也发送一条确认消息</span>
+          </label>
+          <input v-model="form.nod_daily_summary" type="checkbox" />
+        </div>
+        <label>
+          <span>关注发射批次</span>
+          <span class="hint">每行一个国际编号前缀（如 2026-085），命中后无论总开关状态均推送并标记"关注中"</span>
+        </label>
+        <textarea
+          v-model="form.nod_watched_str"
+          class="input"
+          rows="4"
+          placeholder="2026-085&#10;2026-092"
+          style="resize: vertical; min-height: 80px;"
+        ></textarea>
+      </fieldset>
+
       <fieldset class="readonly-section">
         <legend>需手动编辑 config.yaml 后重启</legend>
         <div class="readonly-grid">
@@ -133,6 +165,9 @@ interface ConfigForm {
   xprop_enabled: boolean
   xprop_maneuver_threshold: number
   ds_fallback_threshold: number
+  nod_enabled: boolean
+  nod_daily_summary: boolean
+  nod_watched_str: string
 }
 
 const loading = ref(true)
@@ -149,6 +184,9 @@ const form = reactive<ConfigForm>({
   xprop_enabled: true,
   xprop_maneuver_threshold: 5.0,
   ds_fallback_threshold: 3,
+  nod_enabled: false,
+  nod_daily_summary: false,
+  nod_watched_str: "",
 })
 
 async function loadConfig() {
@@ -167,6 +205,10 @@ async function loadConfig() {
     form.xprop_enabled = cfg.xpropagator?.enabled ?? true
     form.xprop_maneuver_threshold = cfg.xpropagator?.maneuver_threshold_km ?? 5.0
     form.ds_fallback_threshold = cfg.data_source?.fallback_threshold ?? 3
+    const nod = cfg.new_object_discovery || {}
+    form.nod_enabled = nod.enabled ?? false
+    form.nod_daily_summary = nod.daily_summary ?? false
+    form.nod_watched_str = (nod.watched_launches || []).join("\n")
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     error.value = `加载配置失败: ${msg}`
@@ -210,6 +252,14 @@ async function save() {
     },
     data_source: {
       fallback_threshold: form.ds_fallback_threshold,
+    },
+    new_object_discovery: {
+      enabled: form.nod_enabled,
+      daily_summary: form.nod_daily_summary,
+      watched_launches: form.nod_watched_str
+        .split(/[\n,，]+/)
+        .map(s => s.trim())
+        .filter(s => s.length > 0),
     },
   }
 
