@@ -14,24 +14,24 @@ defineProps<{
 </script>
 
 <style scoped>
-.detail-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
+.item {
+  min-width: 0;
 }
-.detail-item.wide {
+.wide {
   grid-column: span 2;
 }
-.detail-label {
+.label {
+  font-family: var(--font-mono);
   font-size: 0.7rem;
-  color: #64748b;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  margin-bottom: 0.15rem;
 }
-.detail-value {
-  font-size: 0.85rem;
-  color: #e2e8f0;
-  font-family: monospace;
+.value {
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  color: var(--color-text-primary);
   word-break: break-all;
 }
 </style>
