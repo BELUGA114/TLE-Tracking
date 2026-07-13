@@ -60,7 +60,7 @@ export class SatelliteSceneManager {
       this.noradToIdx.set(norad, idx)
 
       // Point
-      const point = this.pointCollection.add({
+      this.pointCollection.add({
         position: C.Cartesian3.ZERO,
         color: C.Color.fromCssColorString("#4ade80"),
         pixelSize: 5,

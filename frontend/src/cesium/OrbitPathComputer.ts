@@ -58,7 +58,7 @@ function tryComputePath(
   meanMotion: number,
   ecc: number,
   periodMinutes: number,
-  epochJulian: number,
+  _epochJulian: number,
   centerOffsetDays: number,
   CesiumModule: typeof Cesium,
 ): Cesium.Cartesian3[] | null {
