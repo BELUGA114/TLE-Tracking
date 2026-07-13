@@ -78,6 +78,9 @@ class NewObjectWatcher:
         # 加载或初始化游标
         self._cursor: dict = self._load_cursor()
 
+        # 从游标直接恢复上次检查日期，进程重启后当天不再重复请求
+        self._last_check_date = self._cursor.get("last_check_date", "")
+
         if self._enabled:
             log.info(
                 "新对象发现已启用  调度: %02d:%02d UTC  关注列表: %d 个前缀",
@@ -123,10 +126,11 @@ class NewObjectWatcher:
 
     @staticmethod
     def _default_cursor() -> dict:
-        now = _utc_now().isoformat()
+        now = _utc_now()
         return {
-            "last_debut_ts": now,
-            "last_check_ts": now,
+            "last_debut_ts": now.isoformat(),
+            "last_check_date": now.strftime("%Y-%m-%d"),
+            "last_check_ts": now.isoformat(),
             "total_processed": 0,
         }
 
@@ -287,7 +291,12 @@ class NewObjectWatcher:
         # 回溯窗口检查：必须在覆盖 last_check_ts 之前读取旧值
         old_last_check_ts = self._cursor.get("last_check_ts", now.isoformat())
         self._last_check_date = now.strftime("%Y-%m-%d")
+        self._cursor["last_check_date"] = self._last_check_date
         self._cursor["last_check_ts"] = now.isoformat()
+
+        # 立即持久化"今天已检查"，防止进程在后续网络请求中崩溃导致重启后重复查询
+        # satcat_debut 速率限制 1次/天，重复请求可能导致封号
+        self._save_cursor()
 
         try:
             last_check = datetime.fromisoformat(old_last_check_ts)
