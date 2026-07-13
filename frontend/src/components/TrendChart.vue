@@ -2,13 +2,14 @@
 import { computed } from "vue"
 import VChart from "vue-echarts"
 import "../echarts"
+import { CHART_COLORS } from "../echarts"
 import type { HistoryRecord } from "../types"
 
 const props = defineProps<{
   records: HistoryRecord[]
 }>()
 
-const COLORS = ["#38bdf8", "#4ade80", "#f87171", "#fbbf24", "#a78bfa", "#fb923c", "#f472b6", "#22d3ee"]
+const COLORS = CHART_COLORS.series
 
 interface SatGroup {
   norad: number
@@ -77,8 +78,8 @@ const option = computed(() => {
   return {
     tooltip: {
       trigger: "axis",
-      backgroundColor: "#1e293b",
-      borderColor: "#334155",
+      backgroundColor: CHART_COLORS.tooltipBg,
+      borderColor: CHART_COLORS.tooltipBorder,
       textStyle: { color: "#e2e8f0", fontSize: 12 },
       formatter: (params: { seriesName: string; value: [number, number] }[]) => {
         if (!params.length) return ""
@@ -96,32 +97,32 @@ const option = computed(() => {
     legend: {
       type: "scroll",
       bottom: -5,
-      textStyle: { color: "#94a3b8", fontSize: 11, overflow: "truncate" },
-      pageTextStyle: { color: "#94a3b8" },
-      pageIconColor: "#64748b",
-      pageIconInactiveColor: "#334155",
+      textStyle: { color: CHART_COLORS.axisLabel, fontSize: 11, overflow: "truncate" },
+      pageTextStyle: { color: CHART_COLORS.axisLabel },
+      pageIconColor: CHART_COLORS.axisLabel,
+      pageIconInactiveColor: CHART_COLORS.axisLine,
     },
     grid: { left: 50, right: 20, top: 50, bottom: 45 },
     xAxis: {
       type: "time",
       axisLabel: {
-        color: "#94a3b8",
+        color: CHART_COLORS.axisLabel,
         fontSize: 11,
         formatter: (val: number) => {
           const d = new Date(val)
           return `${d.getMonth() + 1}/${d.getDate()}`
         },
       },
-      axisLine: { lineStyle: { color: "#334155" } },
-      splitLine: { lineStyle: { color: "#1e293b" } },
+      axisLine: { lineStyle: { color: CHART_COLORS.axisLine } },
+      splitLine: { lineStyle: { color: CHART_COLORS.gridLine } },
     },
     yAxis: {
       type: "value",
       scale: true,
       name: "高度 (km)",
-      nameTextStyle: { color: "#94a3b8", fontSize: 11 },
-      axisLabel: { color: "#94a3b8", fontSize: 11 },
-      splitLine: { lineStyle: { color: "#1e293b" } },
+      nameTextStyle: { color: CHART_COLORS.axisLabel, fontSize: 11 },
+      axisLabel: { color: CHART_COLORS.axisLabel, fontSize: 11 },
+      splitLine: { lineStyle: { color: CHART_COLORS.gridLine } },
     },
     series,
     dataZoom: [

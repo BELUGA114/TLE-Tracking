@@ -14,13 +14,13 @@ defineProps<{
 </script>
 
 <style scoped>
-.item {
+.detail-item {
   min-width: 0;
 }
 .wide {
   grid-column: span 2;
 }
-.label {
+.detail-label {
   font-family: var(--font-mono);
   font-size: 0.7rem;
   letter-spacing: 0.06em;
@@ -28,7 +28,7 @@ defineProps<{
   color: var(--color-text-muted);
   margin-bottom: 0.15rem;
 }
-.value {
+.detail-value {
   font-family: var(--font-mono);
   font-size: 0.88rem;
   color: var(--color-text-primary);

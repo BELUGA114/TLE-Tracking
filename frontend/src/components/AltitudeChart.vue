@@ -2,6 +2,7 @@
 import { computed } from "vue"
 import VChart from "vue-echarts"
 import "../echarts"
+import { CHART_COLORS } from "../echarts"
 import type { Satellite } from "../types"
 
 const props = defineProps<{
@@ -31,46 +32,39 @@ const option = computed(() => {
       subtext: `${missing} 颗无轨道数据`,
       left: "right",
       top: 0,
-      textStyle: { color: "#64748b", fontSize: 11, fontWeight: 400 },
-      subtextStyle: { color: "#64748b", fontSize: 10 },
+      textStyle: { color: CHART_COLORS.axisLabel, fontSize: 11, fontWeight: 400 },
+      subtextStyle: { color: CHART_COLORS.axisLabel, fontSize: 10 },
     } : undefined,
     tooltip: {
       trigger: "axis",
-      backgroundColor: "#1e293b",
-      borderColor: "#334155",
+      backgroundColor: CHART_COLORS.tooltipBg,
+      borderColor: CHART_COLORS.tooltipBorder,
       textStyle: { color: "#e2e8f0", fontSize: 12 },
     },
     grid: { left: 50, right: 20, top: 40, bottom: 30 },
     xAxis: {
       type: "category",
       data: bins.map((b) => b.label),
-      axisLabel: { color: "#94a3b8", fontSize: 11 },
-      axisLine: { lineStyle: { color: "#334155" } },
-      axisTick: { lineStyle: { color: "#334155" } },
+      axisLabel: { color: CHART_COLORS.axisLabel, fontSize: 11 },
+      axisLine: { lineStyle: { color: CHART_COLORS.axisLine } },
+      axisTick: { lineStyle: { color: CHART_COLORS.axisLine } },
     },
     yAxis: {
       type: "value",
       minInterval: 1,
-      axisLabel: { color: "#94a3b8", fontSize: 11 },
-      splitLine: { lineStyle: { color: "#1e293b" } },
+      axisLabel: { color: CHART_COLORS.axisLabel, fontSize: 11 },
+      splitLine: { lineStyle: { color: CHART_COLORS.gridLine } },
     },
     series: [
       {
         type: "bar",
         data: counts,
         itemStyle: {
-          color: {
-            type: "linear",
-            x: 0, y: 0, x2: 0, y2: 1,
-            colorStops: [
-              { offset: 0, color: "#38bdf8" },
-              { offset: 1, color: "#0284c7" },
-            ],
-          },
+          color: CHART_COLORS.series[1],
           borderRadius: [4, 4, 0, 0],
         },
         emphasis: {
-          itemStyle: { color: "#7dd3fc" },
+          itemStyle: { color: CHART_COLORS.series[1] },
         },
       },
     ],
