@@ -38,6 +38,14 @@ try:
 except ImportError:
     _CT_MODULE_OK = False
 
+# 新对象发现模块（satcat_debut → Telegram 推送）
+try:
+    from new_object_watcher import NewObjectWatcher
+    from telegram_notifier import TelegramNotifier
+    _DISCOVERY_MODULE_OK = True
+except ImportError:
+    _DISCOVERY_MODULE_OK = False
+
 # 初始化日志系统（必须在配置加载之前）
 logging.basicConfig(
     level=logging.INFO,
@@ -132,6 +140,14 @@ FALLBACK_SOURCE: str   = _ds_cfg.get("fallback",                  "none")
 FALLBACK_THRESHOLD: int = _ds_cfg.get("fallback_threshold",        3)
 CELESTRAK_INTERVAL: int = _ds_cfg.get("celestrak_interval_seconds", 7200)
 USE_SUPPLEMENTAL: bool  = _ds_cfg.get("use_supplemental",          False)
+
+# 新对象发现配置
+_new_obj_cfg = _cfg.get("new_object_discovery", {})
+NEW_OBJECT_DISCOVERY_ENABLED: bool = _new_obj_cfg.get("enabled", False)
+
+# Telegram 凭据
+TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID: str = os.getenv("TELEGRAM_CHAT_ID", "")
 
 # 以下参数涉及 API 合规，不暴露在 config.yaml 中，避免用户误改导致封号
 # Space-Track 规定 gp 端点每小时最多 1 次请求（3600s），登录会话约 2 小时过期（5400s 留 30 分钟余量）
@@ -363,6 +379,17 @@ def compute_next_wake(cache: LocalCache, minute: int = SCHEDULED_MINUTE) -> date
         if (rate_ok_at - sched).total_seconds() > 60:
             while sched <= rate_ok_at:
                 sched += timedelta(hours=1)
+
+    # 如果启用新对象发现，将唤醒时间提前到当天的检查时刻（如果更早）
+    if NEW_OBJECT_DISCOVERY_ENABLED and _DISCOVERY_MODULE_OK:
+        debut_hour = _new_obj_cfg.get("schedule_hour", 17)
+        debut_minute = _new_obj_cfg.get("schedule_minute", 10)
+        now = datetime.now(timezone.utc)
+        debut_target = now.replace(hour=debut_hour, minute=debut_minute, second=0, microsecond=0)
+        if debut_target <= now:
+            debut_target += timedelta(hours=24)
+        if debut_target < sched:
+            sched = debut_target
 
     return sched
 
@@ -1102,6 +1129,9 @@ def run_celestrak_cycle(
 
 _config_mtime: float = 0.0
 
+# 新对象发现模块实例（main() 中初始化，_check_config_reload 中热重载）
+_new_watcher: "NewObjectWatcher | None" = None
+
 ALLOWED_RELOAD_KEYS = {
     "targets.norad_ids",
     "alerts.reentry_warning_km",
@@ -1111,6 +1141,10 @@ ALLOWED_RELOAD_KEYS = {
     "xpropagator.enabled",
     "xpropagator.maneuver_threshold_km",
     "data_source.fallback_threshold",
+    # 新对象发现（web 可配字段）
+    "new_object_discovery.enabled",
+    "new_object_discovery.watched_launches",
+    "new_object_discovery.daily_summary",
 }
 
 
@@ -1120,6 +1154,7 @@ def _check_config_reload(prev_data: dict[int, dict], last_hash: dict[int, str]) 
     global NORAD_IDS, REENTRY_WARNING_KM, SGP4_RELIABLE_FLOOR_KM, ONLY_PRINT_ON_UPDATE
     global FALLBACK_MANEUVER_THRESHOLD_KM, XPROP_ENABLED, XPROP_MANEUVER_THRESHOLD_KM
     global XPROP_ACTIVE, FALLBACK_THRESHOLD
+    global _new_watcher
 
     if not _CONFIG_PATH:
         return False
@@ -1207,6 +1242,31 @@ def _check_config_reload(prev_data: dict[int, dict], last_hash: dict[int, str]) 
         changed.append(f"fallback_threshold: {FALLBACK_THRESHOLD} → {new_fb_thr}")
         FALLBACK_THRESHOLD = new_fb_thr
 
+    # 新对象发现字段
+    if _new_watcher is not None:
+        new_disc = new_cfg.get("new_object_discovery", {})
+        new_disc_enabled = bool(new_disc.get("enabled", False))
+        new_disc_summary = bool(new_disc.get("daily_summary", False))
+        new_disc_watched = new_disc.get("watched_launches", [])
+        if not isinstance(new_disc_watched, list):
+            new_disc_watched = []
+
+        if new_disc_enabled != _new_watcher._enabled:
+            changed.append(f"new_object_discovery.enabled: {_new_watcher._enabled} → {new_disc_enabled}")
+            _new_watcher._enabled = new_disc_enabled
+
+        if new_disc_summary != _new_watcher._daily_summary:
+            changed.append(f"new_object_discovery.daily_summary: {_new_watcher._daily_summary} → {new_disc_summary}")
+            _new_watcher._daily_summary = new_disc_summary
+
+        new_watched_set = {str(w).strip().upper() for w in new_disc_watched if str(w).strip()}
+        if new_watched_set != _new_watcher._watched:
+            changed.append(
+                f"new_object_discovery.watched_launches: "
+                f"{len(_new_watcher._watched)} → {len(new_watched_set)} 个前缀"
+            )
+            _new_watcher._watched = new_watched_set
+
     if changed:
         log.info("[config-reload] 检测到配置变更: %s", "; ".join(changed))
         write_log_message(f"[config-reload] {len(changed)} 项变更已生效")
@@ -1218,6 +1278,7 @@ def _check_config_reload(prev_data: dict[int, dict], last_hash: dict[int, str]) 
 
 def main() -> None:
     """主函数：启动 TLE 监控循环（支持双源协同）"""
+    global _new_watcher
 
     # 仅在 Space-Track 为主源或备源时才强制要求凭据
     _st_required = (PRIMARY_SOURCE == "spacetrack" or FALLBACK_SOURCE == "spacetrack")
@@ -1250,6 +1311,16 @@ def main() -> None:
     print()
 
     write_log_message("程序启动")
+
+    # 初始化 Telegram 通知器
+    _notifier = TelegramNotifier(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID)
+
+    # 初始化新对象发现模块
+    if _DISCOVERY_MODULE_OK:
+        _new_watcher = NewObjectWatcher(_new_obj_cfg, DATA_DIR)
+    else:
+        # 模块未找到时创建一个禁用的占位实例，避免后续 None 检查
+        _new_watcher = NewObjectWatcher({"enabled": False}, DATA_DIR)
 
     # 加载 Space-Track 缓存（仅 spacetrack 模式使用，celestrak 模式中闲置）
     cache = LocalCache(CACHE_FILE)
@@ -1344,6 +1415,10 @@ def main() -> None:
                             process_records(raw_records, prev_data, last_hash, cache)
                             cache.clear_pending()
 
+                            # 新对象发现检查（每天一次，独立于监控）
+                            if _new_watcher is not None and _new_watcher.is_due:
+                                _new_watcher.check(st, _notifier, write_log_fn=write_log_message)
+
                 elif active_source == "celestrak" and _CT_MODULE_OK:
                     # 备源模式（Space-Track 故障期间）
                     ok = run_celestrak_cycle(prev_data, last_hash, consecutive_failures)
@@ -1411,6 +1486,10 @@ def main() -> None:
                         time.sleep(chunk)
                         _waited += chunk
                         _check_config_reload(prev_data, last_hash)
+                        if _new_watcher is not None and _new_watcher.is_due:
+                            with SpaceTrackSession() as st_debut:
+                                if st_debut.ensure_fresh_session():
+                                    _new_watcher.check(st_debut, _notifier, write_log_fn=write_log_message)
                 else:
                     write_log_message(f"距上次 CelesTrak 轮询 {secs_since / 60:.0f} 分钟，满足速率限制")
             else:
@@ -1424,6 +1503,13 @@ def main() -> None:
             )
 
             ok = run_celestrak_cycle(prev_data, last_hash, consecutive_failures)
+
+            # 新对象发现检查（每天一次，独立于监控）
+            if _new_watcher is not None and _new_watcher.is_due:
+                with SpaceTrackSession() as st_debut:
+                    if st_debut.ensure_fresh_session():
+                        _new_watcher.check(st_debut, _notifier, write_log_fn=write_log_message)
+
             if ok:
                 consecutive_failures["count"] = 0
                 active_source = "celestrak"
