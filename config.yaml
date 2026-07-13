@@ -32,9 +32,9 @@ data_source:
   celestrak_interval_seconds: 7200
   use_supplemental: false
 new_object_discovery:
-  enabled: false                 # web:
+  enabled: false
   schedule_hour: 17
   schedule_minute: 10
   backtrack_hours: 72
-  daily_summary: false           # web:
-  watched_launches: []           # web:
+  daily_summary: false
+  watched_launches: []
