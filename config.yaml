@@ -31,3 +31,10 @@ data_source:
   fallback_threshold: 3
   celestrak_interval_seconds: 7200
   use_supplemental: false
+new_object_discovery:
+  enabled: false                 # web:
+  schedule_hour: 17
+  schedule_minute: 10
+  backtrack_hours: 72
+  daily_summary: false           # web:
+  watched_launches: []           # web:

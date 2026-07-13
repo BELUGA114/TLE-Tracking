@@ -36,6 +36,9 @@ ALLOWED_PATHS = {
     "xpropagator.enabled",
     "xpropagator.maneuver_threshold_km",
     "data_source.fallback_threshold",
+    "new_object_discovery.enabled",
+    "new_object_discovery.daily_summary",
+    "new_object_discovery.watched_launches",
 }
 
 
@@ -98,9 +101,12 @@ def _validate_updates(updates: dict, prefix: str = "") -> list[str]:
                         "maneuver_threshold_km", "fallback_threshold"):
                 if not isinstance(value, (int, float)):
                     illegal.append(f"{path} (必须是数字)")
-            elif key in ("enabled", "only_print_on_update"):
+            elif key in ("enabled", "only_print_on_update", "daily_summary"):
                 if not isinstance(value, bool):
                     illegal.append(f"{path} (必须是布尔值)")
+            elif key in ("watched_launches",):
+                if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+                    illegal.append(f"{path} (必须是字符串列表)")
     return illegal
 
 
