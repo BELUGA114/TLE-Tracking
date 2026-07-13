@@ -33,7 +33,11 @@
         </div>
       </div>
     </template>
-    <div v-else class="card empty-card">
+    <div v-else class="empty-card">
+      <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1" width="48" height="48" style="opacity:0.3;margin-bottom:1rem;">
+        <circle cx="24" cy="24" r="20" stroke-dasharray="4 3" />
+        <circle cx="24" cy="24" r="5" fill="currentColor" opacity="0.3" />
+      </svg>
       <p>暂无衰降状态数据</p>
     </div>
   </div>
@@ -76,33 +80,24 @@ function phaseLabel(phase: string) {
 .card-header h3 {
   margin-bottom: 0;
 }
-.tag-critical {
-  background: #7f1d1d;
-  color: #fca5a5;
-}
 .card-body {
   margin-top: 0.75rem;
   display: flex;
   gap: 2rem;
 }
 .stat-label {
-  font-size: 0.75rem;
-  color: #64748b;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
 }
 .stat-value {
+  font-family: var(--font-mono);
   font-size: 1.2rem;
-}
-.empty-card {
-  text-align: center;
-  padding: 3rem;
-  color: #64748b;
+  font-weight: 500;
+  color: var(--color-signal-cyan);
 }
 .chart-row {
-  margin-bottom: 1.5rem;
-}
-.chart-title {
-  font-size: 0.9rem;
-  color: #94a3b8;
-  margin-bottom: 0.25rem;
+  margin-bottom: var(--space-xl);
 }
 </style>
