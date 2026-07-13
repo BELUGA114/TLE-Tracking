@@ -131,34 +131,54 @@ watch(
   width: 100%;
   height: calc(100vh - 160px);
   min-height: 500px;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  border: 1px solid #334155;
+  border: 1px solid var(--color-border);
 }
 .cesium-overlay {
   position: absolute;
   inset: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #94a3b8;
+  gap: var(--space-md);
+  color: var(--color-text-secondary);
+  font-family: var(--font-heading);
   font-size: 1.1rem;
   z-index: 10;
   pointer-events: none;
-  background: rgba(11, 21, 38, 0.85);
+  background: rgba(10, 22, 40, 0.85);
+}
+.cesium-overlay::before {
+  content: '';
+  display: block;
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-signal-gold);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
 }
 .cesium-error {
-  color: #f87171;
-  background: rgba(15, 23, 42, 0.92);
+  color: var(--color-critical-red);
+  background: rgba(10, 22, 40, 0.92);
+}
+.cesium-error::before {
+  display: none;
 }
 .cesium-fallback {
-  color: #fbbf24;
-  font-size: 0.85rem;
+  color: var(--color-warning-orange);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
   top: auto;
   bottom: 12px;
   height: auto;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  background: rgba(30, 41, 59, 0.9);
+  padding: 0.4rem 1rem;
+  border-radius: var(--radius-sm);
+  background: rgba(24, 37, 64, 0.92);
+}
+.cesium-fallback::before {
+  display: none;
 }
 </style>
