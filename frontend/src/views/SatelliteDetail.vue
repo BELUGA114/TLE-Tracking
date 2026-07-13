@@ -1,6 +1,11 @@
 <template>
   <div>
-    <router-link to="/" class="back-link">← 返回仪表盘</router-link>
+    <router-link to="/" class="back-link">
+      <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+        <polyline points="8.5,2.5 4,7 8.5,11.5" />
+      </svg>
+      返回仪表盘
+    </router-link>
 
     <div v-if="sat">
       <h2 class="page-title">{{ sat.name }} <span class="total-badge">#{{ sat.norad }}</span></h2>
@@ -70,8 +75,14 @@
       </div>
     </div>
 
-    <div v-else class="card empty-card">
-      <p>{{ loading ? "加载中..." : "未找到该卫星" }}</p>
+    <div v-else>
+      <template v-if="loading">
+        <div class="skeleton skeleton-card" style="margin-bottom:1rem;"></div>
+        <div class="skeleton skeleton-card" style="height:200px;"></div>
+      </template>
+      <div v-else class="empty-card">
+        <p>未找到该卫星</p>
+      </div>
     </div>
   </div>
 </template>
@@ -130,29 +141,17 @@ function classificationLabel(cls: string) {
 </script>
 
 <style scoped>
-.back-link {
-  color: #94a3b8;
-  text-decoration: none;
-  font-size: 0.85rem;
-  display: inline-block;
-  margin-bottom: 1rem;
-}
-.back-link:hover {
-  color: #38bdf8;
-}
 .section-title {
+  font-family: var(--font-heading);
   font-size: 0.9rem;
-  color: #94a3b8;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--color-signal-gold);
   margin-bottom: 0.75rem;
 }
 .detail-grid {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr 1fr;
   gap: 0.75rem;
-}
-.empty-card {
-  text-align: center;
-  padding: 3rem;
-  color: #64748b;
 }
 </style>
