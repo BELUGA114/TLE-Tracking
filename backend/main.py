@@ -15,11 +15,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.routers import config, decay, history, satellites
@@ -80,6 +81,15 @@ _frontend_dist = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 if _frontend_dist.is_dir():
     app.mount("/assets", StaticFiles(directory=str(_frontend_dist / "assets")), name="assets")
 
+    # 启动时注入 Cesium Ion token（不编译进前端构建产物，运行时由环境变量控制）
+    _index_path = _frontend_dist / "index.html"
+    _raw_index_html = _index_path.read_text(encoding="utf-8")
+    _cesium_token = os.environ.get("CESIUM_ION_TOKEN", "")
+    _index_html = _raw_index_html.replace(
+        'window.CESIUM_ION_TOKEN=""',
+        f'window.CESIUM_ION_TOKEN="{_cesium_token}"',
+    )
+
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
         file_path = (_frontend_dist / full_path).resolve()
@@ -88,7 +98,7 @@ if _frontend_dist.is_dir():
         try:
             file_path.relative_to(frontend_root)
         except ValueError:
-            return FileResponse(frontend_root / "index.html", media_type="text/html")
+            return HTMLResponse(_index_html)
         if file_path.is_file():
             return FileResponse(file_path)
-        return FileResponse(frontend_root / "index.html", media_type="text/html")
+        return HTMLResponse(_index_html)

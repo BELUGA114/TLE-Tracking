@@ -3,6 +3,7 @@ FROM node:22-alpine AS frontend-builder
 
 WORKDIR /build
 COPY frontend/ .
+
 RUN npm install && npx vite build
 
 # Stage 2: Python 后端 + 核心监控 + 静态文件服务

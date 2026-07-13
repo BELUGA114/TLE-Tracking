@@ -52,11 +52,12 @@ function collectDiagnostics(container: HTMLElement, token: string): Diagnostics 
 
 export async function bootstrapCesium(container: HTMLElement): Promise<BootResult | BootError> {
   // 1. 读取 token
-  const meta = import.meta as unknown as Record<string, unknown>
+  //    生产环境：由后端在 index.html 中注入 window.CESIUM_ION_TOKEN（运行时，不编译进镜像）
+  //    开发环境：由 Vite 从 .env 文件读取 VITE_CESIUM_ION_TOKEN
   const token: string =
-    meta.env
-      ? (meta.env as Record<string, string>).VITE_CESIUM_ION_TOKEN ?? ""
-      : ""
+    (globalThis as Record<string, unknown>).CESIUM_ION_TOKEN as string ||
+    ((import.meta as unknown as Record<string, unknown>).env as Record<string, string> | undefined)?.VITE_CESIUM_ION_TOKEN ||
+    ""
 
   // 2. 诊断预检
   const diag = collectDiagnostics(container, token)
