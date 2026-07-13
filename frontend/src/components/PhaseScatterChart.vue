@@ -2,6 +2,7 @@
 import { computed } from "vue"
 import VChart from "vue-echarts"
 import "../echarts"
+import { CHART_COLORS } from "../echarts"
 import type { DecaySatellite } from "../types"
 
 const props = defineProps<{
@@ -9,10 +10,10 @@ const props = defineProps<{
 }>()
 
 const PHASES: Record<string, { label: string; color: string }> = {
-  normal: { label: "正常", color: "#4ade80" },
-  early_decay: { label: "早期衰降", color: "#fbbf24" },
-  accelerating: { label: "加速衰降", color: "#fb923c" },
-  critical: { label: "临界", color: "#f87171" },
+  normal: { label: "正常", color: CHART_COLORS.decayPhases.normal },
+  early_decay: { label: "早期衰降", color: CHART_COLORS.decayPhases.early_decay },
+  accelerating: { label: "加速衰降", color: CHART_COLORS.decayPhases.accelerating },
+  critical: { label: "临界", color: CHART_COLORS.decayPhases.critical },
 }
 
 const option = computed(() => {
@@ -37,38 +38,38 @@ const option = computed(() => {
       type: "scatter" as const,
       data: points,
       symbolSize: 8,
-      itemStyle: { color: PHASES[phase]?.color ?? "#64748b" },
+      itemStyle: { color: PHASES[phase]?.color ?? CHART_COLORS.axisLabel },
     }))
 
   return {
     tooltip: {
       trigger: "item",
-      backgroundColor: "#1e293b",
-      borderColor: "#334155",
+      backgroundColor: CHART_COLORS.tooltipBg,
+      borderColor: CHART_COLORS.tooltipBorder,
       textStyle: { color: "#e2e8f0", fontSize: 12 },
-      formatter: (params: any) => {
+      formatter: (params: { seriesName: string; value: [number, number] }) => {
         return `${params.seriesName}<br>近地点: ${params.value[0].toFixed(1)} km<br>远地点: ${params.value[1].toFixed(1)} km`
       },
     },
     legend: {
-      textStyle: { color: "#94a3b8", fontSize: 11 },
+      textStyle: { color: CHART_COLORS.axisLabel, fontSize: 11 },
     },
     grid: { left: 55, right: 20, top: 40, bottom: 35 },
     xAxis: {
       type: "value",
       name: "近地点 (km)",
-      nameTextStyle: { color: "#94a3b8", fontSize: 11 },
-      axisLabel: { color: "#94a3b8", fontSize: 11 },
-      splitLine: { lineStyle: { color: "#1e293b" } },
-      axisLine: { lineStyle: { color: "#334155" } },
+      nameTextStyle: { color: CHART_COLORS.axisLabel, fontSize: 11 },
+      axisLabel: { color: CHART_COLORS.axisLabel, fontSize: 11 },
+      splitLine: { lineStyle: { color: CHART_COLORS.gridLine } },
+      axisLine: { lineStyle: { color: CHART_COLORS.axisLine } },
     },
     yAxis: {
       type: "value",
       name: "远地点 (km)",
-      nameTextStyle: { color: "#94a3b8", fontSize: 11 },
-      axisLabel: { color: "#94a3b8", fontSize: 11 },
-      splitLine: { lineStyle: { color: "#1e293b" } },
-      axisLine: { lineStyle: { color: "#334155" } },
+      nameTextStyle: { color: CHART_COLORS.axisLabel, fontSize: 11 },
+      axisLabel: { color: CHART_COLORS.axisLabel, fontSize: 11 },
+      splitLine: { lineStyle: { color: CHART_COLORS.gridLine } },
+      axisLine: { lineStyle: { color: CHART_COLORS.axisLine } },
     },
     series,
   }

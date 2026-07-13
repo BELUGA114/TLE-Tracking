@@ -3,7 +3,11 @@
     <h2 class="page-title">设置</h2>
     <p class="page-desc">修改以下配置后点击保存，将在下一轮询周期自动生效，无需重启容器。</p>
 
-    <div v-if="loading" class="loading">加载中...</div>
+    <div v-if="loading">
+      <div class="skeleton skeleton-card" style="margin-bottom:0.75rem;"></div>
+      <div class="skeleton skeleton-card" style="margin-bottom:0.75rem;"></div>
+      <div class="skeleton skeleton-card" style="height:80px;"></div>
+    </div>
 
     <form v-else @submit.prevent="save" class="settings-form">
       <fieldset>
@@ -28,6 +32,13 @@
             <span class="hint">近地点低于此值时触发预警</span>
           </label>
           <input v-model.number="form.alerts_reentry_warning_km" type="number" class="input input-sm" />
+        </div>
+        <div class="row">
+          <label>
+            <span>SGP4 可靠高度下限 (km)</span>
+            <span class="hint">近地点低于此值时跳过残差分析，仅使用简单阈值判定</span>
+          </label>
+          <input v-model.number="form.alerts_sgp4_reliable_floor_km" type="number" class="input input-sm" />
         </div>
         <div class="row">
           <label>
@@ -100,7 +111,7 @@
       </fieldset>
 
       <div class="actions">
-        <button type="submit" class="btn-save" :disabled="saving">
+        <button type="submit" class="btn-primary" :disabled="saving">
           {{ saving ? "保存中..." : "保存配置" }}
         </button>
         <span v-if="saved" class="saved-msg">已保存，将在下一轮询周期生效</span>
@@ -116,6 +127,7 @@ import { reactive, ref, onMounted } from "vue"
 interface ConfigForm {
   norad_ids_str: string
   alerts_reentry_warning_km: number
+  alerts_sgp4_reliable_floor_km: number
   alerts_only_print_on_update: boolean
   alerts_fallback_threshold: number
   xprop_enabled: boolean
@@ -131,6 +143,7 @@ const error = ref("")
 const form = reactive<ConfigForm>({
   norad_ids_str: "",
   alerts_reentry_warning_km: 200,
+  alerts_sgp4_reliable_floor_km: 350,
   alerts_only_print_on_update: true,
   alerts_fallback_threshold: 5.0,
   xprop_enabled: true,
@@ -148,13 +161,15 @@ async function loadConfig() {
 
     form.norad_ids_str = (cfg.targets?.norad_ids || []).join(", ")
     form.alerts_reentry_warning_km = cfg.alerts?.reentry_warning_km ?? 200
+    form.alerts_sgp4_reliable_floor_km = cfg.alerts?.sgp4_reliable_floor_km ?? 350
     form.alerts_only_print_on_update = cfg.alerts?.only_print_on_update ?? true
     form.alerts_fallback_threshold = cfg.alerts?.fallback_maneuver_threshold_km ?? 5.0
     form.xprop_enabled = cfg.xpropagator?.enabled ?? true
     form.xprop_maneuver_threshold = cfg.xpropagator?.maneuver_threshold_km ?? 5.0
     form.ds_fallback_threshold = cfg.data_source?.fallback_threshold ?? 3
-  } catch (e: any) {
-    error.value = `加载配置失败: ${e.message}`
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    error.value = `加载配置失败: ${msg}`
   } finally {
     loading.value = false
   }
@@ -185,6 +200,7 @@ async function save() {
     targets: { norad_ids },
     alerts: {
       reentry_warning_km: form.alerts_reentry_warning_km,
+      sgp4_reliable_floor_km: form.alerts_sgp4_reliable_floor_km,
       only_print_on_update: form.alerts_only_print_on_update,
       fallback_maneuver_threshold_km: form.alerts_fallback_threshold,
     },
@@ -208,8 +224,9 @@ async function save() {
       throw new Error(body.detail || `HTTP ${resp.status}`)
     }
     saved.value = true
-  } catch (e: any) {
-    error.value = `保存失败: ${e.message}`
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    error.value = `保存失败: ${msg}`
   } finally {
     saving.value = false
   }
@@ -220,25 +237,25 @@ onMounted(loadConfig)
 
 <style scoped>
 .page-desc {
-  color: #94a3b8;
-  margin-bottom: 1.5rem;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-xl);
   font-size: 0.9rem;
-}
-.loading {
-  color: #94a3b8;
 }
 .settings-form {
   max-width: 640px;
 }
 fieldset {
-  border: 1px solid #334155;
-  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   padding: 1.25rem;
   margin-bottom: 1.25rem;
+  background: var(--color-surface);
 }
 legend {
-  color: #38bdf8;
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
   font-weight: 600;
+  color: var(--color-signal-gold);
   padding: 0 0.5rem;
 }
 label {
@@ -246,11 +263,11 @@ label {
   flex-direction: column;
   gap: 0.15rem;
   margin-bottom: 0.75rem;
-  color: #e2e8f0;
+  color: var(--color-text-primary);
   font-size: 0.9rem;
 }
 .hint {
-  color: #64748b;
+  color: var(--color-text-muted);
   font-size: 0.78rem;
   font-weight: 400;
 }
@@ -262,29 +279,59 @@ label {
   align-items: center;
   justify-content: space-between;
 }
+
+/* 自定义复选框 */
+input[type="checkbox"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  background: var(--color-void);
+  cursor: pointer;
+  position: relative;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+input[type="checkbox"]:checked {
+  background: var(--color-signal-gold);
+  border-color: var(--color-signal-gold);
+}
+input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 2px;
+  width: 5px;
+  height: 9px;
+  border: solid var(--color-space-black);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
 .input {
   width: 100%;
   padding: 0.45rem 0.6rem;
-  background: #0f172a;
-  border: 1px solid #334155;
-  border-radius: 4px;
-  color: #e2e8f0;
+  background: var(--color-void);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
   font-size: 0.9rem;
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 .input:focus {
-  outline: none;
-  border-color: #0ea5e9;
+  border-color: var(--color-signal-gold);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
 }
 .input-sm {
   max-width: 160px;
 }
-input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  accent-color: #0ea5e9;
-}
+
+/* 只读区 */
 .readonly-section legend {
-  color: #64748b;
+  color: var(--color-text-muted);
 }
 .readonly-grid {
   display: flex;
@@ -296,45 +343,30 @@ input[type="checkbox"] {
   justify-content: space-between;
   align-items: center;
   padding: 0.35rem 0;
-  border-bottom: 1px solid #1e293b;
+  border-bottom: 1px solid rgba(30, 48, 80, 0.4);
 }
 .ro-key {
-  color: #94a3b8;
+  color: var(--color-text-secondary);
   font-size: 0.85rem;
-  font-family: monospace;
+  font-family: var(--font-mono);
 }
 .ro-reason {
-  color: #64748b;
+  color: var(--color-text-muted);
   font-size: 0.78rem;
 }
+
 .actions {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  margin-top: 1.5rem;
-}
-.btn-save {
-  padding: 0.5rem 1.5rem;
-  background: #0ea5e9;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  cursor: pointer;
-}
-.btn-save:hover {
-  background: #0284c7;
-}
-.btn-save:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+  gap: var(--space-lg);
+  margin-top: var(--space-xl);
 }
 .saved-msg {
-  color: #4ade80;
+  color: var(--color-nominal-green);
   font-size: 0.85rem;
 }
 .error-msg {
-  color: #f87171;
+  color: var(--color-critical-red);
   font-size: 0.85rem;
 }
 </style>
