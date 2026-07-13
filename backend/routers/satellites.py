@@ -19,8 +19,8 @@ async def get_satellites():
 async def get_satellite(norad_id: int):
     """返回单颗卫星的最新轨道数据"""
     sats = load_latest_satellites()
-    merge_raw_elements(sats)
     for sat in sats:
         if sat.get("norad") == norad_id:
+            merge_raw_elements([sat])
             return sat
     return {"error": f"NORAD ID {norad_id} not found"}, 404

@@ -82,7 +82,13 @@ if _frontend_dist.is_dir():
 
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
-        file_path = _frontend_dist / full_path
+        file_path = (_frontend_dist / full_path).resolve()
+        frontend_root = _frontend_dist.resolve()
+        # 阻止路径穿越攻击：确保解析后的路径在 dist 目录内
+        try:
+            file_path.relative_to(frontend_root)
+        except ValueError:
+            return FileResponse(frontend_root / "index.html", media_type="text/html")
         if file_path.is_file():
             return FileResponse(file_path)
-        return FileResponse(_frontend_dist / "index.html", media_type="text/html")
+        return FileResponse(frontend_root / "index.html", media_type="text/html")

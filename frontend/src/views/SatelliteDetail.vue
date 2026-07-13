@@ -1,6 +1,11 @@
 <template>
   <div>
-    <router-link to="/" class="back-link">← 返回仪表盘</router-link>
+    <router-link to="/" class="back-link">
+      <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+        <polyline points="8.5,2.5 4,7 8.5,11.5" />
+      </svg>
+      返回仪表盘
+    </router-link>
 
     <div v-if="sat">
       <h2 class="page-title">{{ sat.name }} <span class="total-badge">#{{ sat.norad }}</span></h2>
@@ -70,18 +75,26 @@
       </div>
     </div>
 
-    <div v-else class="card empty-card">
-      <p>{{ loading ? "加载中..." : "未找到该卫星" }}</p>
+    <div v-else>
+      <template v-if="loading">
+        <div class="skeleton skeleton-card" style="margin-bottom:1rem;"></div>
+        <div class="skeleton skeleton-card" style="height:200px;"></div>
+      </template>
+      <div v-else class="empty-card">
+        <p>未找到该卫星</p>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue"
+import { ref, computed, onMounted } from "vue"
 import { useRoute } from "vue-router"
 import DetailItem from "../components/DetailItem.vue"
 import TrendChart from "../components/TrendChart.vue"
 import { useWebSocket } from "../composables/useWebSocket"
+import { fetchSatelliteHistory } from "../api"
+import type { HistoryRecord } from "../types"
 
 const route = useRoute()
 const noradId = Number(route.params.noradId)
@@ -90,9 +103,18 @@ const { satellites, historyRecords, loading } = useWebSocket()
 
 const sat = computed(() => satellites.value.find((s) => s.norad === noradId))
 
-const satelliteHistory = computed(() =>
-  historyRecords.value.filter((r) => r.norad === noradId)
-)
+// 优先通过 REST API 获取该卫星的完整变化历史，避免 WebSocket 仅推送全局最近 100 条的问题
+const satelliteHistory = ref<HistoryRecord[]>([])
+
+onMounted(async () => {
+  try {
+    const res = await fetchSatelliteHistory(noradId, 200)
+    satelliteHistory.value = res.records
+  } catch {
+    // REST API 不可用时回退到 WebSocket 全局历史
+    satelliteHistory.value = historyRecords.value.filter((r) => r.norad === noradId)
+  }
+})
 
 function tagClass(type: string) {
   return {
@@ -119,29 +141,17 @@ function classificationLabel(cls: string) {
 </script>
 
 <style scoped>
-.back-link {
-  color: #94a3b8;
-  text-decoration: none;
-  font-size: 0.85rem;
-  display: inline-block;
-  margin-bottom: 1rem;
-}
-.back-link:hover {
-  color: #38bdf8;
-}
 .section-title {
+  font-family: var(--font-heading);
   font-size: 0.9rem;
-  color: #94a3b8;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--color-signal-gold);
   margin-bottom: 0.75rem;
 }
 .detail-grid {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr 1fr;
   gap: 0.75rem;
-}
-.empty-card {
-  text-align: center;
-  padding: 3rem;
-  color: #64748b;
 }
 </style>
