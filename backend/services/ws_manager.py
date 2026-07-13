@@ -49,16 +49,16 @@ manager = ConnectionManager()
 
 
 def _ensure_tle_lines(sat: dict) -> None:
-    """如果 tle1/tle2 为空，从 _raw_elements 合成 TLE 行"""
-    if sat.get("tle1") and sat.get("tle2"):
-        return
+    """从 _raw_elements 合成/修复 TLE 行，确保校验和正确"""
     raw = sat.get("_raw_elements")
     if not raw:
         return
     try:
         sat["tle1"], sat["tle2"] = gp_json_to_tle_lines(raw)
     except Exception:
-        log.warning("TLE 行合成失败 [%s]", sat.get("norad", "?"))
+        if not sat.get("tle1") or not sat.get("tle2"):
+            log.warning("TLE 行合成失败 [%s]", sat.get("norad", "?"))
+        # 合成失败但已有原始 TLE：保留原始继续用（校验和可能有问题，但好过没有）
 
 
 def _load_satellites() -> list[dict]:
