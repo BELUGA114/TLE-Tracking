@@ -17,6 +17,8 @@ services:
       # - ./.env:/app/.env
     environment:
       - TZ=Asia/Shanghai
+      # 可选：Cesium Ion token（不设则使用 OSM 免费瓦片）
+      - CESIUM_ION_TOKEN=${CESIUM_ION_TOKEN:-}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status == 200 else 1)"]
       interval: 30s
