@@ -124,34 +124,69 @@ class TelegramNotifier:
     def send_debut(self, record: dict, watched: bool = False) -> bool:
         """格式化并发送一条新编目通知。
 
-        Args:
-            record: satcat_debut 查询返回的原始 dict，需包含:
-                NORAD_CAT_ID, OBJECT_NAME, OBJECT_ID, DEBUT
-            watched: 是否命中关注列表，True 时添加 "🔍 关注中" 标签
+        satcat_debut 返回的字段参考（modeldef 确认）：
+          身份: NORAD_CAT_ID, OBJECT_NAME, OBJECT_ID, INTLDES, DEBUT
+          轨道: PERIOD, INCLINATION, APOGEE, PERIGEE
+          发射: LAUNCH, SITE, COUNTRY, LAUNCH_YEAR, LAUNCH_NUM, LAUNCH_PIECE
         """
-        name = str(record.get("OBJECT_NAME", "?"))
-        norad_id = str(record.get("NORAD_CAT_ID", "?"))
-        intldes = str(record.get("OBJECT_ID", "?"))
-        debut = str(record.get("DEBUT", "?"))
-
         e = self.escape
+        name = e(str(record.get("OBJECT_NAME") or "?"))
+        norad_id = str(record.get("NORAD_CAT_ID") or "?")
+        intldes = e(str(record.get("OBJECT_ID") or record.get("INTLDES") or "?"))
+        debut = e(str(record.get("DEBUT") or "?"))
+
+        perigee = record.get("PERIGEE")
+        apogee = record.get("APOGEE")
+        period = record.get("PERIOD")
+        incl = record.get("INCLINATION")
+        launch = record.get("LAUNCH")
+        site = record.get("SITE")
+        country = record.get("COUNTRY")
 
         watched_label = "  <i>🔍 关注中</i>" if watched else ""
 
-        text = (
-            f"<b>🛰 新编目 PAYLOAD</b>{watched_label}\n"
-            f"\n"
-            f"<b>名称:</b> {e(name)}\n"
-            f"<b>NORAD ID:</b> <code>{e(norad_id)}</code>\n"
-            f"<b>国际编号:</b> {e(intldes)}\n"
-            f"<b>编目时间:</b> {e(debut)} UTC\n"
-            f"\n"
+        # 轨道参数行：只在有数据时才显示
+        orbit_parts: list[str] = []
+        if perigee is not None and apogee is not None:
+            orbit_parts.append(f"<b>近地点:</b> {e(str(perigee))} km  <b>远地点:</b> {e(str(apogee))} km")
+        elif perigee is not None:
+            orbit_parts.append(f"<b>近地点:</b> {e(str(perigee))} km")
+        elif apogee is not None:
+            orbit_parts.append(f"<b>远地点:</b> {e(str(apogee))} km")
+        if incl is not None:
+            orbit_parts.append(f"<b>倾角:</b> {e(str(incl))}°")
+        if period is not None:
+            orbit_parts.append(f"<b>周期:</b> {e(str(period))} min")
+
+        # 发射信息行
+        launch_parts: list[str] = []
+        if launch:
+            launch_parts.append(f"<b>发射:</b> {e(str(launch))}")
+        if site:
+            launch_parts.append(f"<b>发射场:</b> {e(str(site))}")
+        if country:
+            launch_parts.append(f"<b>国家:</b> {e(str(country))}")
+
+        lines = [
+            f"<b>🛰 新编目 PAYLOAD</b>{watched_label}",
+            "",
+            f"<b>名称:</b> {name}",
+            f"<b>NORAD ID:</b> <code>{e(norad_id)}</code>",
+            f"<b>国际编号:</b> {intldes}",
+            f"<b>编目时间:</b> {debut} UTC",
+        ]
+        if orbit_parts:
+            lines.append("  ".join(orbit_parts))
+        if launch_parts:
+            lines.append("  ".join(launch_parts))
+        lines += [
+            "",
             f'<a href="https://www.n2yo.com/satellite/?s={e(norad_id)}">N2YO</a>'
             f"  |  "
-            f'<a href="https://celestrak.org/satcat/records.php?CATNR={e(norad_id)}">CelesTrak</a>'
-        )
+            f'<a href="https://celestrak.org/satcat/records.php?CATNR={e(norad_id)}">CelesTrak</a>',
+        ]
 
-        return self.send(text)
+        return self.send("\n".join(lines))
 
     def send_summary(self, count: int, note: str = "") -> bool:
         """发送摘要消息（无新对象的静默确认或宕机恢复说明）。
