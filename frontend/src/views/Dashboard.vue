@@ -2,8 +2,19 @@
   <div>
     <div class="dashboard-header">
       <h2 class="page-title">仪表盘</h2>
-      <button class="view-toggle" @click="toggleView">
-        {{ is3d ? "☰ 2D 列表" : "🌍 3D 地球" }}
+      <button class="btn-ghost" @click="toggleView">
+        <svg v-if="is3d" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="15" height="15">
+          <rect x="1.5" y="1.5" width="5" height="5" rx="1" />
+          <rect x="9.5" y="1.5" width="5" height="5" rx="1" />
+          <rect x="1.5" y="9.5" width="5" height="5" rx="1" />
+          <rect x="9.5" y="9.5" width="5" height="5" rx="1" />
+        </svg>
+        <svg v-else viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="15" height="15">
+          <circle cx="8" cy="8" r="6.5" />
+          <ellipse cx="8" cy="8" rx="3" ry="6.5" />
+          <line x1="1.5" y1="8" x2="14.5" y2="8" />
+        </svg>
+        {{ is3d ? "2D 列表" : "3D 地球" }}
       </button>
     </div>
 
@@ -108,11 +119,15 @@
                   </td>
                 </tr>
               </template>
-              <tr v-if="!satellites.length">
-                <td colspan="9" style="text-align:center;color:#64748b;">加载中...</td>
-              </tr>
+              <template v-if="!satellites.length">
+                <tr v-for="i in 5" :key="'skel-'+i">
+                  <td colspan="9" style="padding:0.35rem 0.75rem;">
+                    <div class="skeleton skeleton-row"></div>
+                  </td>
+                </tr>
+              </template>
               <tr v-else-if="!filteredSatellites.length">
-                <td colspan="9" style="text-align:center;color:#64748b;">无匹配卫星</td>
+                <td colspan="9" style="text-align:center;color:var(--color-text-muted);padding:2rem;">无匹配卫星</td>
               </tr>
             </tbody>
           </table>
@@ -208,58 +223,27 @@ function classificationLabel(cls: string) {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: var(--space-xl);
 }
 .dashboard-header .page-title {
   margin-bottom: 0;
 }
-.view-toggle {
-  background: #0ea5e9;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  padding: 0.45rem 1rem;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.view-toggle:hover {
-  background: #0284c7;
-}
-.chart-card {
-  margin-bottom: 1.5rem;
-}
-.chart-title {
-  font-size: 0.9rem;
-  color: #94a3b8;
-  margin-bottom: 0.5rem;
-}
-.search-input {
-  flex: 1;
-  max-width: 300px;
-  background: #0f172a;
-  border: 1px solid #334155;
-  border-radius: 4px;
-  padding: 0.35rem 0.6rem;
-  color: #e2e8f0;
-  font-size: 0.85rem;
-  outline: none;
-  transition: border-color 0.15s;
-}
-.search-input:focus {
-  border-color: #0ea5e9;
-}
-.search-input::placeholder {
-  color: #475569;
-}
+
 .norad-link {
-  color: #38bdf8;
+  color: var(--color-data-blue);
   text-decoration: none;
+  font-family: var(--font-mono);
 }
 .norad-link:hover {
+  color: var(--color-signal-gold);
   text-decoration: underline;
 }
+
 .cesium-wrapper {
   position: relative;
+}
+
+.chart-card {
+  margin-bottom: var(--space-xl);
 }
 </style>
