@@ -105,7 +105,7 @@
         </div>
         <label>
           <span>关注发射批次</span>
-          <span class="hint">每行一个国际编号前缀（如 2026-085），命中后无论总开关状态均推送并标记"关注中"</span>
+          <span class="hint">每行一个国际编号前缀（如 2026-085），前缀匹配（2026-085A/B 都命中），命中后无论总开关状态均推送并标记"关注中"</span>
         </label>
         <textarea
           v-model="form.nod_watched_str"
@@ -324,10 +324,14 @@ label {
 .row {
   margin-bottom: 0.75rem;
 }
-.checkbox-row label {
-  flex-direction: row;
-  align-items: center;
+.checkbox-row {
+  display: flex;
   justify-content: space-between;
+  align-items: flex-start;
+}
+.checkbox-row label {
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 /* 自定义复选框 */
