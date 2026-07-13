@@ -63,7 +63,7 @@ class NewObjectWatcher:
         self._backtrack_hours = int(config.get("backtrack_hours", 72))
         self._daily_summary = bool(config.get("daily_summary", False))
 
-        # 关注列表：INTLDES 精确匹配集合（已规范化 uppercased）
+        # 关注列表：INTLDES 前缀匹配集合（已规范化 uppercased）
         raw_watched = config.get("watched_launches", [])
         if isinstance(raw_watched, list):
             self._watched: set[str] = {
@@ -258,8 +258,8 @@ class NewObjectWatcher:
             # 获取国际编号：优先 OBJECT_ID，回退 INTLDES
             intldes = str(rec.get("OBJECT_ID") or rec.get("INTLDES") or "").strip().upper()
 
-            # 过滤：检查是否命中关注列表
-            if intldes in self._watched:
+            # startswith 匹配：关注 "2026-085" 命中 "2026-085A"/"2026-085B" 等
+            if any(intldes.startswith(prefix) for prefix in self._watched):
                 matched.append(rec)
             else:
                 unmatched.append(rec)
