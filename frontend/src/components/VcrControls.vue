@@ -105,26 +105,26 @@ function onSeek(e: Event) {
   bottom: 12px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 20;
+  z-index: var(--z-overlay);
   pointer-events: none;
   width: 90%;
-  max-width: 900px;
+  max-width: 850px;
 }
 .vcr-bar {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  background: rgba(15, 23, 42, 0.88);
-  border: 1px solid #334155;
-  border-radius: 8px;
+  gap: var(--space-sm);
+  background: rgba(10, 22, 40, 0.92);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
   padding: 0.35rem 0.75rem;
-  backdrop-filter: blur(6px);
+  backdrop-filter: blur(10px);
   pointer-events: auto;
 }
 .vcr-time {
-  font-family: monospace;
-  font-size: 0.8rem;
-  color: #94a3b8;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--color-signal-gold);
   white-space: nowrap;
   min-width: 13em;
   text-align: center;
@@ -139,8 +139,8 @@ function onSeek(e: Event) {
   -webkit-appearance: none;
   appearance: none;
   flex: 1;
-  height: 4px;
-  background: #334155;
+  height: 3px;
+  background: var(--color-border);
   border-radius: 2px;
   outline: none;
   cursor: pointer;
@@ -151,26 +151,27 @@ function onSeek(e: Event) {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: #4ade80;
-  border: 2px solid #166534;
+  background: var(--color-signal-cyan);
+  border: 2px solid #0891b2;
   cursor: pointer;
+  box-shadow: 0 0 6px rgba(34, 211, 238, 0.4);
   transition: transform 0.1s;
 }
 .vcr-slider::-webkit-slider-thumb:hover {
-  transform: scale(1.2);
+  transform: scale(1.25);
 }
 .vcr-slider::-moz-range-thumb {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: #4ade80;
-  border: 2px solid #166534;
+  background: var(--color-signal-cyan);
+  border: 2px solid #0891b2;
   cursor: pointer;
 }
 .vcr-offset {
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: 0.7rem;
-  color: #64748b;
+  color: var(--color-text-muted);
   min-width: 4em;
   text-align: right;
   white-space: nowrap;
@@ -182,9 +183,9 @@ function onSeek(e: Event) {
 }
 .vcr-btn {
   background: transparent;
-  border: 1px solid #334155;
+  border: 1px solid var(--color-border);
   color: #cbd5e1;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   padding: 0.2rem 0.5rem;
   font-size: 0.8rem;
   cursor: pointer;
@@ -192,8 +193,9 @@ function onSeek(e: Event) {
   line-height: 1.4;
 }
 .vcr-btn:hover {
-  background: #334155;
-  color: #f1f5f9;
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  border-color: var(--color-signal-gold);
 }
 .vcr-btn:disabled {
   opacity: 0.35;
@@ -209,22 +211,24 @@ function onSeek(e: Event) {
 }
 .vcr-speed {
   font-size: 0.7rem;
+  font-family: var(--font-mono);
   padding: 0.15rem 0.35rem;
   min-width: 2.2em;
   text-align: center;
 }
 .vcr-speed.active {
-  background: #0ea5e9;
-  border-color: #0ea5e9;
-  color: #fff;
+  background: var(--color-signal-gold);
+  border-color: var(--color-signal-gold);
+  color: var(--color-space-black);
 }
 .vcr-fallback {
-  font-size: 0.6rem;
-  background: #f59e0b22;
-  color: #f59e0b;
-  border: 1px solid #f59e0b55;
-  border-radius: 3px;
-  padding: 0.1rem 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  background: rgba(251, 146, 60, 0.12);
+  color: var(--color-warning-orange);
+  border: 1px solid rgba(251, 146, 60, 0.35);
+  border-radius: var(--radius-sm);
+  padding: 0.1rem 0.4rem;
   font-weight: 600;
 }
 </style>
