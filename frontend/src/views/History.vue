@@ -72,9 +72,13 @@
                 </td>
               </tr>
             </template>
-            <tr v-if="!records.length">
-              <td colspan="12" style="text-align:center;color:#64748b;">加载中...</td>
-            </tr>
+            <template v-if="!records.length">
+              <tr v-for="i in 6" :key="'skel-'+i">
+                <td colspan="12" style="padding:0.35rem 0.75rem;">
+                  <div class="skeleton skeleton-row"></div>
+                </td>
+              </tr>
+            </template>
           </tbody>
         </table>
       </div>
