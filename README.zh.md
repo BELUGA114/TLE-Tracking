@@ -4,385 +4,201 @@
 
 ---
 
-一个支持双数据源（Space-Track.org 和 CelesTrak）的轻量级轨道监控系统，提供简单的 Web 仪表盘实时展示轨道数据。
+一个支持双数据源的轻量级轨道监控系统，带 Web 仪表盘和 Telegram Bot。
 
-**核心能力**：
+## 功能
 
-- **数据采集** — 自动监控单颗或多颗卫星的 TLE 更新，支持双源故障转移
-- **变化分类** — 自动分辨解算修正与真实机动（哈希比对 + 可选 xpropagator 残差分析）
-- **Web 仪表盘** — 实时展示轨道数据、趋势图表、衰降状态
-- **实时推送** — WebSocket 实时推送，页面自动响应数据更新
-- **衰降分析** — 自动检测轨道衰降趋势并分级告警
-- **Docker 一键部署** — 监控 + 仪表盘
-
----
-
-## 特性
-- 智能调度系统：同时考虑调度时刻和速率限制
-- TLE 变化分类：区分解算修正（Correction）与真实机动（Maneuver）
-  - 默认使用简单的近地点/远地点阈值规则
-  - 可选启用高精度残差分析（依靠 xpropagator 服务）
-- 断点恢复机制：程序崩溃后自动从缓存恢复未处理数据
-- 重启自动恢复状态：从历史数据恢复上次轨道状态
+- **TLE 监控** — 双源（Space-Track / CelesTrak）自动轮询，支持故障切换
+- **变化分类** — 区分真实机动与解算修正（哈希比对 + 可选 xpropagator 残差分析）
+- **新对象发现** — Space-Track SATCAT 新编目载荷检测，Telegram 推送
+- **Telegram Bot** — 双向交互：开关切换、关注列表管理（命令 + 行内键盘）
+- **Web 仪表盘** — Vue 3 实时展示轨道数据、趋势图表、衰降状态
+- **衰降分析** — 四级衰减判定，自动分级告警
+- **Docker 部署** — 多架构镜像，一键 `docker compose up -d`
 
 ## 快速开始
 
-### 1. 安装 Python 依赖
-
-确保你已经安装了 Python，然后在项目目录下运行：
+### 1. 安装依赖
 
 ```bash
-pip install requests python-dotenv pyyaml
+pip install requests python-dotenv pyyaml fastapi uvicorn
 ```
 
----
+### 2. 配置
 
-### 2. 配置凭据
-
-**步骤 1：复制模板文件**
-
-将 `.env.example` 复制一份并重命名为 `.env`：
-
-```bash
-cp .env.example .env
-```
-
-**步骤 2：填写凭据（Space-Track 模式必需）**
-
-用文本编辑器打开 `.env` 文件，填入你的 Space-Track 账号和密码：
+复制 `.env.example` 为 `.env`，填写凭据（CelesTrak 主源时 Space-Track 可选）：
 
 ```env
 SPACETRACK_USER=your_email@example.com
 SPACETRACK_PASS=your_password
+TELEGRAM_BOT_TOKEN=your_bot_token      # 新对象发现需要
+TELEGRAM_CHAT_ID=your_chat_id          # 新对象发现需要
 ```
 
-> - `.env` 文件包含你的账号密码，不要分享给他人
-> - 如果没有 Space-Track 账号，需要先去 [space-track.org](https://www.space-track.org) 注册
-> - **注意**：如果使用 CelesTrak 作为主数据源，Space-Track 凭据为可选
-
----
-
-### 3. 配置监控目标与数据源
-
-编辑 `config.yaml` 文件以修改监控的卫星或调整其他参数。
-
-**最简单的用法**：使用默认配置监控 ISS（CelesTrak 作为主数据源，无需认证）
-
-**自定义配置示例**：
+编辑 `config.yaml`：
 
 ```yaml
 targets:
-  norad_ids: [25544, 48273]  # 监控多个卫星
-
-schedule:
-  minute: 17  # 每小时第 17 分钟请求数据（仅 Space-Track 模式）
+  norad_ids: [25544, 48273]
 
 data_source:
-  primary: "celestrak"         # 主数据源: "celestrak" | "spacetrack"
-  fallback: "spacetrack"       # 备源
-  fallback_threshold: 3        # 主源连续失败几次后切换备源
+  primary: "celestrak"       # 主源，celestrak 无需认证
+  fallback: "spacetrack"
+
+new_object_discovery:
+  enabled: true              # 开启新对象发现
+  watched_launches:          # 关注列表（可选）
+    - intldes_prefix: "2026-085"
+      label: "星链 G12-3"
 ```
 
-> **Web 热重载**：可编辑的字段（targets、alerts、xpropagator、data_source.fallback_threshold）可在仪表盘设置页 `/settings` 修改，无需重启容器即可在下一轮询周期自动生效。详见下方的[配置参考](#配置参考)。
+标记 `# web:` 的字段可在仪表盘设置页在线修改，热重载生效。
 
----
-
-### 4. （可选）配置 xpropagator 残差分析
+### 3. 运行
 
 ```bash
-pip install grpcio grpcio-tools
+python spacetrack_monitor.py       # 监控 + 内建 Web 服务
+.venv\Scripts\python.exe telegram_bot.py   # Telegram Bot（独立进程）
 ```
 
-在 `config.yaml` 中启用 `xpropagator` 配置段，然后参见下方的 [轨道预报后端 (xpropagator)](#轨道预报后端-xpropagator) 章节。
-
----
-
-### 5. 运行脚本
-
-在项目目录下运行：
+### 4. Docker
 
 ```bash
-python spacetrack_monitor.py
+docker compose up -d               # 监控 + 仪表盘 + Bot 一键启动
 ```
 
-首次运行时，脚本会：
-1. 加载你的配置
-2. 如需冷启动（为新卫星从 CelesTrak 获取初始数据）
-3. 立即执行第一次数据拉取
-4. 之后按配置的调度自动检查
+访问 `http://localhost:8000`。Bot 凭据配置后自动启动。预构建镜像：`ghcr.io/beluga114/tle-tracking:latest`。
 
-看到类似以下输出表示运行成功：
-
-```
-2026-05-02 10:00:00 TLE-Tracking 轨道监控  主源: celestrak  备源: spacetrack
-2026-05-02 10:00:00 目标: 25544
-2026-05-02 10:00:00 调度: 每 2 小时 (CelesTrak) | 再入预警: <200 km
-```
-
----
-
-### 6. Docker 部署
-
-使用 Docker Compose 一键部署监控 + Web 仪表盘（多阶段构建，自动编译前端）：
+### 5. 本地开发
 
 ```bash
-# 构建并启动（监控 + Web 仪表盘）
-docker compose up -d
-
-# 查看日志
-docker compose logs -f
-
-# 仅启动 Web 仪表盘（不启动数据采集）
-DISABLE_MONITOR=true docker compose up -d
-
-# 停止
-docker compose down
+uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000   # 后端
+cd frontend && pnpm install && pnpm dev                         # 前端 (:5173)
 ```
 
-也可直接从 GitHub Container Registry 拉取预构建镜像，无需本地编译：
+## 新对象发现 & Telegram Bot
 
-```yaml
-# docker-compose.yml
-services:
-  tle-tracking:
-    image: ghcr.io/beluga114/tle-tracking:latest
-    pull_policy: always
-    # ... 其余配置
+每天 UTC 17:10（SATCAT 日更后）查询 Space-Track 过去 24h 新编目的 PAYLOAD 对象，推送到 Telegram。
+
+```
+Space-Track SATCAT → new_object_watcher.py → Telegram 通知
+                                              └── Web 设置页
 ```
 
-每次发布新版本时自动构建多架构镜像（linux/amd64、linux/arm64）。
+**Bot 命令**：
 
-启动后访问 **http://localhost:8000** 即可打开仪表盘。
+| 命令 | 作用 |
+|---|---|
+| `/start` | 主菜单 |
+| `/status` | 状态 + 开关 |
+| `/watchlist` | 关注列表管理 |
+| `/addwatch <前缀> [备注]` | 添加关注 |
+| `/rmwatch <前缀>` | 移除关注 |
+| `/help` | 帮助 |
 
-**宿主机文件布局**：
-```
-project/
-├── config.yaml      # 配置文件（挂载）
-├── .env             # 凭据文件（可选）
-└── data/            # 运行数据（持久化卷）
-    ├── tle_data.jsonl
-    ├── tle_log.jsonl
-    ├── tle_cache.json
-    ├── decay_state.json
-    └── celestrak_poll_cache.json
-```
-
-> **热重载**：标记 `# web:` 的字段（见下方[配置参考](#配置参考)）可在仪表盘设置页（`/settings`）在线修改，无需重启。其他字段需编辑 `config.yaml` 后执行 `docker compose restart`，无需重建镜像。
-
-### 7. 本地开发（无 Docker）
-
-**启动后端**：
-
-```bash
-uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-**启动前端**（需先安装 Node.js 22+ 和 pnpm）：
-
-```bash
-cd frontend
-pnpm install
-pnpm dev
-```
-
-前端开发服务器运行在 `http://localhost:5173`，API 请求自动代理到后端 8000 端口。
-
----
+关注列表支持前缀匹配（`2026-085` 命中 `2026-085A`/`2026-085B`）。命中项无论总开关状态均推送，打"关注中"标签。
 
 ## Web 仪表盘
 
-基于 **Vue 3 + FastAPI + WebSocket** 的 Web 仪表盘，将轨道数据以图表和表格形式可视化，支持实时推送更新
-
-| 页面 | 路线 | 功能 |
+| 页面 | 路由 | 功能 |
 |---|---|---|
-| **仪表盘** | `/` | 卫星总览表格、搜索筛选、轨道高度分布图、可展开详细参数 |
-| **TLE 变化** | `/history` | TLE 更新时间线，可展开对比参数差异 |
-| **衰降状态** | `/decay` | 衰降阶段饼图、近地点/远地点散点图、等级列表 |
-| **卫星详情** | `/satellite/{noradId}` | 完整轨道参数、近地点/远地点趋势图、历史记录 |
+| 仪表盘 | `/` | 卫星表格、搜索筛选、轨道分布图 |
+| TLE 变化 | `/history` | 变化时间线、参数对比 |
+| 衰降状态 | `/decay` | 阶段饼图、散点图、等级列表 |
+| 卫星详情 | `/satellite/{id}` | 完整参数、趋势图、历史 |
+| 设置 | `/settings` | 在线修改配置，热重载 |
 
-**架构**:
-```
-spacetrack_monitor.py → data/*.jsonl → FastAPI 文件监听 → WebSocket → Vue 3 SPA (ECharts)
-```
+技术栈：Vue 3 + FastAPI + WebSocket + ECharts + CesiumJS
 
----
-
-### 配置参考
-
-所有配置通过 `config.yaml` 完成。标记 `# web:` 的字段可在仪表盘设置页（`/settings`）在线修改，下一轮询周期自动生效，无需重启。
+## 配置参考
 
 ```yaml
-# HTTP 请求的 User-Agent
 user_agent: ''
 
 targets:
-  norad_ids: [25544]          # web: 监控的卫星 NORAD ID 列表
+  norad_ids: [25544]          # web
 
 schedule:
-  minute: 17                  # 调度分钟（仅 Space-Track 模式，避开 :00/:30）
+  minute: 17                  # Space-Track 查询分钟（避开 :00/:30）
 
 files:
-  data_dir: /data             # 数据目录
-  data_file: tle_data.jsonl   # 轨道数据文件
-  cache: tle_cache.json       # 断点恢复缓存
-  run_log: tle_log.jsonl      # 运行日志
-  max_log_size_mb: 10         # 日志轮转阈值
+  data_dir: /data
+  data_file: tle_data.jsonl
+  cache: tle_cache.json
+  run_log: tle_log.jsonl
+  max_log_size_mb: 10
 
 alerts:
-  reentry_warning_km: 200             # web: 近地点低于此值触发再入预警
-  only_print_on_update: true           # web: 仅在 TLE 变化时打印
-  fallback_maneuver_threshold_km: 5.0  # web: 降级机动判定阈值 (km)
+  reentry_warning_km: 200             # web
+  only_print_on_update: true          # web
+  fallback_maneuver_threshold_km: 5.0 # web
 
 retry:
-  login_max_failures: 5       # Space-Track 登录最大重试
-  login_pause_seconds: 1800   # 登录失败等待时间（秒）
-  request_max_retries: 3      # HTTP 请求最大重试
-  request_retry_base: 5       # 指数退避基时间（秒）
+  login_max_failures: 5
+  login_pause_seconds: 1800
+  request_max_retries: 3
+  request_retry_base: 5
 
 xpropagator:
-  enabled: true                     # web: 启用残差分析
-  host: localhost                    # gRPC 地址
-  port: 50051                        # gRPC 端口
-  maneuver_threshold_km: 5.0         # web: 机动判定阈值 (km)
+  enabled: true               # web
+  host: localhost
+  port: 50051
+  maneuver_threshold_km: 5.0  # web
 
 data_source:
-  primary: celestrak            # 主源（celestrak / spacetrack）
-  fallback: spacetrack          # 备源（spacetrack / none）
-  fallback_threshold: 3                    # web: 连续失败 N 次切换备源
-  celestrak_interval_seconds: 7200         # 轮询间隔（速率合规）
-  use_supplemental: false                  # 使用补充 GP 数据
+  primary: celestrak
+  fallback: spacetrack
+  fallback_threshold: 3       # web
+  celestrak_interval_seconds: 7200
+  use_supplemental: false
+
+new_object_discovery:
+  enabled: false              # web
+  schedule_hour: 17
+  schedule_minute: 10
+  backtrack_hours: 72
+  daily_summary: false        # web
+  watched_launches: []        # web
 ```
 
-### 数据文件
+标记 `# web` 的字段可在 `/settings` 页面在线修改，下一轮询周期生效。
 
-脚本运行后会自动生成以下文件：
+## 数据文件
 
-- **tle_data.jsonl**: 核心轨道数据（每次 TLE 更新时记录），每条记录包含 `change_type` 字段（initial/correction/maneuver），便于后处理过滤真实机动事件，带轮转保护
-- **tle_cache.json**: 临时缓存，保存上次请求时间、全量原始数据和待处理标记，支持断点恢复，自动覆盖
-- **tle_log.jsonl**: 运行日志，记录程序运行状态，带轮转保护
+运行后自动生成于 `DATA_DIR`：
 
-> **日志轮转**：当文件大小超过配置的阈值（默认 10MB）时，会自动重命名为 `.bak` 备份文件。
+> **优先级**：`DATA_DIR` 环境变量 > `config.yaml` `files.data_dir` > 平台默认。
+> Docker：`/data`（挂载宿主机 `./data`）。Windows：项目目录。
 
-> **跨平台数据目录说明**：
-> - **Linux / Docker**：默认为 `/data`（通过 `config.yaml` 的 `files.data_dir` 配置）。Docker 中请确保 volume 挂载到 `/data` 以实现持久化。
-> - **Windows**：默认为项目当前目录（`.`）。可通过 `DATA_DIR` 环境变量覆盖，或修改 `config.yaml` 中的 `data_dir` 配置。
-> - **覆盖优先级**：`DATA_DIR` 环境变量 > `config.yaml` 的 `files.data_dir` > 平台默认值。
+- `tle_data.jsonl` — 核心轨道数据，含 `change_type`（initial/correction/maneuver/decaying）
+- `tle_cache.json` — 断点恢复缓存
+- `tle_log.jsonl` — 运行日志
+- `new_object_cursor.json` — 新对象发现游标
 
----
-
-## 输出示例
-
-### 控制台输出
-
-```text
-2026-04-27 14:12:01 [25544] 本批次共 3 条解算记录，取最新一条
-2026-04-27 14:12:01 [25544] 检测到 TLE 变化！(hash: abc123 → def456, 类型: 解算修正 (Correction))
-
-  ===============================================
-    ISS (ZARYA)          NORAD 25544
-    国际编号: 1998-067A
-    历元:     2026-04-27T14:08:32
-    近地点:   418.5 km    远地点: 421.2 km
-    倾角:     51.6400°   周期: 92.870 min
-    离心率:   0.0002000   BSTAR: 2.3456e-04
-    TLE Hash: abcdef1234567890
-  ===============================================  （近地点 +0.3 km，远地点 +0.2 km）
-  1 25544U 98067A   ...
-  2 25544  51.6400 ...
-```
-
-### 看起来反常的等待提示？（其实是预期行为）
-
-示例：
-```text
-2026-04-25 00:30:13 下次查询：02:12 UTC（102 分钟后）
-```
-
-**为什么会出现 "102 分钟"？** 脚本严格遵守两条规则：避开整点和半点高峰期（:00、:30），且两次请求间隔至少 60 分钟。当约束条件将下次可用时间推到调度时刻之后时，会自动顺延到下一个调度小时——所以看起来等待时间很长。这是预期行为，用于确保 API 合规、账号安全和长期稳定运行。
-
----
-
-## 轨道预报后端 (xpropagator)
-
-### 重要声明
-
-**本仓库不包含或分发 USSF SGP4/SGP4-XP 二进制文件。** TLE-Tracking 仅通过网络 gRPC 调用外部 xpropagator 服务。部署说明请参考 [xpropagator 官方仓库](https://github.com/xpropagation/xpropagator)。
-
-> 本仓库的 MIT 许可证仅适用于 TLE-Tracking 自有代码，外部组件和服务遵循其各自的许可条款。
-
-### 残差分析原理
-
-当检测到 TLE 更新时：
-
-1. **旧 TLE 向前传播**：将旧 TLE 传播到新 TLE 的历元时刻
-2. **新 TLE 初始化**：在新历元时刻初始化新 TLE
-3. **计算残差**：在 ECI 笛卡尔坐标系中计算位置差（km）
-4. **判定规则**：
-   - 残差 >= 机动判定阈值 → 真实机动（Maneuver）
-   - 残差 < 机动判定阈值 → 解算修正（Correction）
-
-这种方法比直接比较轨道根数更准确，因为基于 USSF 官方 SGP4-XP 模型，
-在状态空间比较，消除了轨道根数解算的舍入误差。
-
----
+日志超过 10MB 自动轮转。
 
 ## 关于再入预测
 
-本项目中的再入时间估算极其粗糙，仅供娱乐参考。
+基于 BSTAR 的简化大气模型，极其粗略，仅供娱乐。忽略姿态、太阳活动、空间天气等因素——误差可达数倍。如需严肃分析，请使用专业轨道传播器（SGP4/SGP4-XP）配合高精度大气模型。
 
-当前实现：
+## 轨道预报 (xpropagator)
 
-- 使用 BSTAR + 简化指数大气模型
-- 通过轨道平均运动变化率进行估算
-- 忽略了大量关键因素（姿态、太阳活动、空间天气等）
+可选高精度残差分析：将旧 TLE 传播到新历元，计算 ECI 位置差。
 
-实际误差可能达到数倍甚至更大，不适用于任何严肃分析或决策。
+- 残差 >= 阈值 → 真实机动
+- 残差 < 阈值 → 解算修正
 
-如需更专业的衰减预报，推荐使用专业轨道传播器（如 SGP4/SGP4-XP）和高精度大气模型（如 NRLMSISE-00）。
+需要自行部署 [xpropagator](https://github.com/xpropagation/xpropagator) 服务，本项目不含 SGP4 二进制文件。
 
----
+## 速率限制
 
-## 数据格式（JSONL）
+- **Space-Track**：gp 端点 1 次/小时，satcat_debut 1 次/天。违规封号
+- **CelesTrak**：每星 2 小时 1 次
 
-轨道数据以 JSON lines 格式存储在 `tle_data.jsonl` 中。每条记录包含：`timestamp`、`change_type`、`norad`、`name`、`periapsis`、`apoapsis`、`epoch`、`tle_hash` 和原始 TLE 行。
-
-**change_type 字段说明：**
-- `initial` — 首次记录
-- `correction` — 解算修正（近地点/远地点变化 < 阈值）
-- `maneuver` — 真实机动（近地点/远地点变化 > 阈值）
-- `decaying` — 近地点低于再入预警阈值，SGP4 不可靠，跳过分类
-
-阈值可通过 `alerts.fallback_maneuver_threshold_km` 配置（默认 5.0 km）。
-
----
-
-## 注意事项
-
-本项目严格遵守 Space-Track.org 和 CelesTrak.org 的 API 使用规范。
-
-### 速率限制
-
-- **Space-Track**：每小时仅允许向 gp 类端点发起 1 次请求，违规会导致账号被封
-- **CelesTrak**：每颗卫星每 2 小时至多查询一次，过度请求可能触发临时封锁
-
-### 推荐的查询方式
-
-**Space-Track** — 使用批量查询获取过去一小时内发布的所有 TLE，然后在本地筛选目标卫星（详见 [Space-Track API 文档](https://www.space-track.org/documentation#/api)）。
-
-**CelesTrak** — 按 NORAD ID 单星查询，例如 `https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=json`。
-
-### 调度时间要求
-
-- **Space-Track**：避开整点和半点高峰期（:00、:30），建议使用非高峰时段（如 :12、:48）
-- **CelesTrak**：每 2 小时轮询一次，脚本自动控制频率
-
-### 请勿修改调度逻辑以规避速率限制
-
----
+避开 :00/:30 整半点高峰。**请勿修改调度逻辑规避限制**。
 
 ## 相关链接
 
 - [Space-Track.org](https://www.space-track.org/)
 - [CelesTrak.org](https://celestrak.org/)
-- [Space-Track API Documentation](https://www.space-track.org/documentation#/api)
 - [xpropagator](https://github.com/xpropagation/xpropagator)
