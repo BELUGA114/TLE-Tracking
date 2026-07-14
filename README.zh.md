@@ -35,6 +35,11 @@ TELEGRAM_BOT_TOKEN=your_bot_token      # 新对象发现需要
 TELEGRAM_CHAT_ID=your_chat_id          # 新对象发现需要
 ```
 
+> **如何获取 Telegram 凭据：**
+> - `TELEGRAM_BOT_TOKEN` — 向 Telegram 上的 [@BotFather](https://t.me/BotFather) 发送 `/newbot`，按提示创建机器人即可获得
+> - `TELEGRAM_CHAT_ID` — 向 [@UserIDxBot](https://t.me/UserIDxBot) 发送 `/id` 即可看到你的数字 ID，或给创建好的 Bot 发条消息后访问 `https://api.telegram.org/bot{TOKEN}/getUpdates` 查看
+```
+
 编辑 `config.yaml`：
 
 ```yaml
