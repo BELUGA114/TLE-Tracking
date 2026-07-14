@@ -170,3 +170,35 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+"""
+真实返回:
+{
+  "INTLDES": "2026-150E",
+  "NORAD_CAT_ID": "69743",
+  "OBJECT_TYPE": "PAYLOAD",
+  "SATNAME": "STARLINK-38087",
+  "DEBUT": "2026-07-07 17:33:19",
+  "COUNTRY": "US",
+  "LAUNCH": "2026-07-02",
+  "SITE": "AFWTR",
+  "DECAY": null,
+  "PERIOD": null,
+  "INCLINATION": null,
+  "APOGEE": null,
+  "PERIGEE": null,
+  "COMMENT": null,
+  "COMMENTCODE": null,
+  "RCSVALUE": "0",
+  "RCS_SIZE": "LARGE",
+  "FILE": "9537",
+  "LAUNCH_YEAR": "2026",
+  "LAUNCH_NUM": "150",
+  "LAUNCH_PIECE": "E",
+  "CURRENT": "Y",
+  "OBJECT_NAME": "STARLINK-38087",
+  "OBJECT_ID": "2026-150E",
+  "OBJECT_NUMBER": "69743"
+}
+"""
