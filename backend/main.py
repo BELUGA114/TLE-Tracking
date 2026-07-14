@@ -23,7 +23,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from backend.routers import config, decay, history, satellites
+from backend.routers import config, decay, history, satellites, discovery
 from backend.services.ws_manager import manager, file_watcher, send_initial
 
 logging.basicConfig(
@@ -56,6 +56,7 @@ app.include_router(satellites.router)
 app.include_router(history.router)
 app.include_router(decay.router)
 app.include_router(config.router)
+app.include_router(discovery.router)
 
 
 @app.get("/health")

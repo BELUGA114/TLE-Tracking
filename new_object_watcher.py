@@ -63,14 +63,20 @@ class NewObjectWatcher:
         self._backtrack_hours = int(config.get("backtrack_hours", 72))
         self._daily_summary = bool(config.get("daily_summary", False))
 
-        # 关注列表：INTLDES 前缀匹配集合（已规范化 uppercased）
+        # 关注列表：prefix → label 映射。兼容旧 list[str] 和新 list[dict] 两种格式
         raw_watched = config.get("watched_launches", [])
+        self._watched: dict[str, str] = {}
         if isinstance(raw_watched, list):
-            self._watched: set[str] = {
-                str(w).strip().upper() for w in raw_watched if str(w).strip()
-            }
-        else:
-            self._watched = set()
+            for item in raw_watched:
+                if isinstance(item, str):
+                    prefix = item.strip().upper()
+                    if prefix:
+                        self._watched[prefix] = ""
+                elif isinstance(item, dict):
+                    prefix = str(item.get("intldes_prefix", "")).strip().upper()
+                    if prefix:
+                        label = str(item.get("label", "")).strip()
+                        self._watched[prefix] = label
 
         self._cursor_path = os.path.join(data_dir, CURSOR_FILENAME)
         self._last_check_date: str = ""  # ISO date (YYYY-MM-DD)，当天已检查过则跳过
@@ -258,8 +264,15 @@ class NewObjectWatcher:
             # 获取国际编号：优先 OBJECT_ID，回退 INTLDES
             intldes = str(rec.get("OBJECT_ID") or rec.get("INTLDES") or "").strip().upper()
 
-            # startswith 匹配：关注 "2026-085" 命中 "2026-085A"/"2026-085B" 等
-            if any(intldes.startswith(prefix) for prefix in self._watched):
+            # startswith 匹配：关注 "2026-085" 命中 "2026-085A"/"2026-085B"
+            # 同时查找 label，匹配到的第一个 prefix 的 label 被使用
+            matched_prefix = ""
+            for prefix in self._watched:
+                if intldes.startswith(prefix):
+                    matched_prefix = prefix
+                    break
+            if matched_prefix:
+                rec["_matched_label"] = self._watched[matched_prefix]
                 matched.append(rec)
             else:
                 unmatched.append(rec)
@@ -351,11 +364,14 @@ class NewObjectWatcher:
 
         # 推送：命中关注列表的优先
         for rec in matched:
-            if notifier.send_debut(rec, watched=True):
+            label = rec.get("_matched_label", "")
+            rec.pop("_matched_label", None)
+            if notifier.send_debut(rec, watched=True, label=label):
                 pushed += 1
                 if write_log_fn:
+                    label_suffix = f" — {label}" if label else ""
                     write_log_fn(
-                        f"[新对象发现] 已推送（关注）: NORAD {rec.get('NORAD_CAT_ID')} "
+                        f"[新对象发现] 已推送（关注{label_suffix}）: NORAD {rec.get('NORAD_CAT_ID')} "
                         f"{rec.get('OBJECT_NAME', '?')} ({rec.get('OBJECT_ID', '?')})"
                     )
             time.sleep(0.5)  # Telegram 限流保护

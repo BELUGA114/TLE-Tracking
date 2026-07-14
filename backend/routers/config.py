@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 
@@ -15,6 +16,9 @@ security = HTTPBearer(auto_error=False)
 
 # 可选 API 密钥：设置 DASHBOARD_API_KEY 环境变量即可启用认证
 _DASHBOARD_API_KEY = os.environ.get("DASHBOARD_API_KEY", "")
+
+# 防止前端和 Telegram Bot 并发 read-modify-write 导致互相覆盖
+_config_lock = asyncio.Lock()
 
 
 def _require_auth(credentials: HTTPAuthorizationCredentials | None = Depends(security)):
@@ -105,8 +109,22 @@ def _validate_updates(updates: dict, prefix: str = "") -> list[str]:
                 if not isinstance(value, bool):
                     illegal.append(f"{path} (必须是布尔值)")
             elif key in ("watched_launches",):
-                if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
-                    illegal.append(f"{path} (必须是字符串列表)")
+                if not isinstance(value, list):
+                    illegal.append(f"{path} (必须是列表)")
+                else:
+                    for i, item in enumerate(value):
+                        if isinstance(item, str):
+                            if not item.strip():
+                                illegal.append(f"{path}[{i}] (前缀不能为空)")
+                        elif isinstance(item, dict):
+                            pfx = item.get("intldes_prefix", "")
+                            if not pfx or not isinstance(pfx, str) or not pfx.strip():
+                                illegal.append(f"{path}[{i}].intldes_prefix (必填且不能为空)")
+                            lbl = item.get("label")
+                            if lbl is not None and not isinstance(lbl, str):
+                                illegal.append(f"{path}[{i}].label (必须是字符串)")
+                        else:
+                            illegal.append(f"{path}[{i}] (必须是字符串或对象)")
     return illegal
 
 
@@ -133,15 +151,17 @@ async def update_config(updates: dict, _auth=Depends(_require_auth)):
     if illegal:
         raise HTTPException(400, f"不允许修改的字段: {', '.join(illegal)}")
 
-    cfg = _read_config()
-    if not cfg:
-        raise HTTPException(500, "无法读取配置文件")
+    # read-modify-write 加锁，防止前端和 bot 并发写导致互相覆盖
+    async with _config_lock:
+        cfg = _read_config()
+        if not cfg:
+            raise HTTPException(500, "无法读取配置文件")
 
-    _merge_allowed(cfg, updates)
+        _merge_allowed(cfg, updates)
 
-    try:
-        _write_config(cfg)
-    except OSError as e:
-        raise HTTPException(500, f"配置文件写入失败: {e}")
+        try:
+            _write_config(cfg)
+        except OSError as e:
+            raise HTTPException(500, f"配置文件写入失败: {e}")
 
     return {"status": "ok", "message": "配置已保存，将在下一轮询周期生效"}
