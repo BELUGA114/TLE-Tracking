@@ -6,8 +6,8 @@ services:
     # image: ghcr.io/beluga114/tle-tracking:latest
     container_name: tle-tracking
     restart: unless-stopped
-    ports:
-      - "8000:8000"
+    network_mode: "host"
+    # host 模式下 ports 被忽略，uvicorn 直接监听宿主机 0.0.0.0:8000
     volumes:
       # 配置文件（可随时修改，重启容器生效）
       - ./config.yaml:/app/config.yaml
@@ -17,6 +17,10 @@ services:
       # - ./.env:/app/.env
     environment:
       - TZ=Asia/Shanghai
+      # 代理
+      - HTTP_PROXY=${HTTP_PROXY:-}
+      - HTTPS_PROXY=${HTTPS_PROXY:-}
+      - NO_PROXY=localhost,127.0.0.1,::1
       # Cesium Ion token（可选，不设则使用 OSM 免费瓦片）
       - CESIUM_ION_TOKEN=${CESIUM_ION_TOKEN:-}
       # Space-Track 凭据（需要用到 spacetrack 数据源时必填）
