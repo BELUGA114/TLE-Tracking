@@ -69,6 +69,15 @@ docker compose up -d          # Monitor + Dashboard + Bot
 
 Visit `http://localhost:8000`. Bot auto-starts when Telegram credentials are configured. Pre-built image: `ghcr.io/beluga114/tle-tracking:latest`.
 
+**Proxy (optional):** Add to `.env` if external services (Telegram, Space-Track) need a proxy:
+
+```env
+HTTP_PROXY=http://host:port
+HTTPS_PROXY=http://host:port
+```
+
+The container inherits these via `docker-compose.yml`. `NO_PROXY=localhost,127.0.0.1,::1` is preset — internal API calls (bot → dashboard on localhost:8000) bypass the proxy, Leave unset or empty if no proxy is required.
+
 ### 5. Local Dev
 
 ```bash

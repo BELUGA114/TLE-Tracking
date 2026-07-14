@@ -69,6 +69,15 @@ docker compose up -d               # 监控 + 仪表盘 + Bot 一键启动
 
 访问 `http://localhost:8000`。Bot 凭据配置后自动启动。预构建镜像：`ghcr.io/beluga114/tle-tracking:latest`。
 
+**代理（可选）：** 如果外部服务（Telegram、Space-Track）需要走代理，在 `.env` 中添加：
+
+```env
+HTTP_PROXY=http://host:port
+HTTPS_PROXY=http://host:port
+```
+
+容器通过 `docker-compose.yml` 继承这些变量。已预设 `NO_PROXY=localhost,127.0.0.1,::1`——内部 API 调用（Bot → 仪表盘 localhost:8000）不走代理，不需要代理时留空或不设置即可
+
 ### 5. 本地开发
 
 ```bash
