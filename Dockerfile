@@ -23,6 +23,7 @@ COPY spacetrack_monitor.py .
 COPY celestrak_fetcher.py .
 COPY telegram_notifier.py .
 COPY new_object_watcher.py .
+COPY telegram_bot.py .
 COPY xpropagator_client.py .
 COPY api/ api/
 

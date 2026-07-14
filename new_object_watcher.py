@@ -134,8 +134,10 @@ class NewObjectWatcher:
     def _default_cursor() -> dict:
         now = _utc_now()
         return {
+            # last_debut_ts=now 确保首次查询不推送历史数据（DEBUT > now 无记录）
+            # last_check_date="" 确保首次 is_due 不跳过当天（"" != today）
             "last_debut_ts": now.isoformat(),
-            "last_check_date": now.strftime("%Y-%m-%d"),
+            "last_check_date": "",
             "last_check_ts": now.isoformat(),
             "total_processed": 0,
         }
@@ -265,9 +267,9 @@ class NewObjectWatcher:
             intldes = str(rec.get("OBJECT_ID") or rec.get("INTLDES") or "").strip().upper()
 
             # startswith 匹配：关注 "2026-085" 命中 "2026-085A"/"2026-085B"
-            # 同时查找 label，匹配到的第一个 prefix 的 label 被使用
+            # 按 key 长度降序遍历，长前缀优先（防止 "2026-08" 误匹配 "2026-085A"）
             matched_prefix = ""
-            for prefix in self._watched:
+            for prefix in sorted(self._watched.keys(), key=len, reverse=True):
                 if intldes.startswith(prefix):
                     matched_prefix = prefix
                     break

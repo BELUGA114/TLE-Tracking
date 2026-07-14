@@ -165,3 +165,26 @@ async def update_config(updates: dict, _auth=Depends(_require_auth)):
             raise HTTPException(500, f"配置文件写入失败: {e}")
 
     return {"status": "ok", "message": "配置已保存，将在下一轮询周期生效"}
+
+
+@router.post("/toggle-discovery")
+async def toggle_discovery(_auth=Depends(_require_auth)):
+    """原子翻转 new_object_discovery.enabled，返回新值。
+
+    独立端点而非让客户端读-改-写 PUT，防止 bot 和前端并发 toggle 时
+    一方覆盖另一方（两次 toggle 理应相消，但先后读同值导致回到原点）。
+    """
+    async with _config_lock:
+        cfg = _read_config()
+        if not cfg:
+            raise HTTPException(500, "无法读取配置文件")
+        nod = cfg.setdefault("new_object_discovery", {})
+        current = nod.get("enabled", False)
+        new_val = not current
+        nod["enabled"] = new_val
+        try:
+            _write_config(cfg)
+        except OSError as e:
+            raise HTTPException(500, f"配置文件写入失败: {e}")
+
+    return {"enabled": new_val}
