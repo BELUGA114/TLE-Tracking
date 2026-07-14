@@ -242,18 +242,21 @@ class NewObjectWatcher:
         newest_ts = last_ts  # 记录本批次最新的 DEBUT 时间
 
         for rec in records:
-            # 解析 DEBUT 时间
+            # 解析 DEBUT 时间。Space-Track 返回格式为 "2026-07-07 17:33:19"（无时区）
             debut_str = str(rec.get("DEBUT", ""))
             try:
                 debut_ts = datetime.fromisoformat(debut_str)
             except ValueError:
-                # 尝试 Space-Track datetime 常见格式
+                debut_ts = None
+            if debut_ts is None:
                 try:
                     debut_ts = datetime.strptime(debut_str, "%Y-%m-%d %H:%M:%S")
-                    debut_ts = debut_ts.replace(tzinfo=timezone.utc)
                 except ValueError:
                     log.debug("无法解析 DEBUT 时间: %s，跳过", debut_str)
                     continue
+            # fromisoformat 对空格分隔的字符串可能返回不带时区的 datetime，统一补 UTC
+            if debut_ts.tzinfo is None:
+                debut_ts = debut_ts.replace(tzinfo=timezone.utc)
 
             # 去重：DEBUT 不晚于游标时间 → 跳过
             if debut_ts <= last_ts:
