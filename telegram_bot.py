@@ -117,6 +117,30 @@ def _get_status() -> Optional[dict]:
         return None
 
 
+def _setup_commands() -> None:
+    """在 Bot 启动时调用 setMyCommands，配置左下角菜单按钮的命令列表"""
+    commands = [
+        {"command": "start", "description": "欢迎语 + 主菜单"},
+        {"command": "status", "description": "状态摘要 + 开关"},
+        {"command": "watchlist", "description": "关注列表面板"},
+        {"command": "addwatch", "description": "添加关注前缀"},
+        {"command": "rmwatch", "description": "移除关注前缀"},
+        {"command": "help", "description": "显示帮助"},
+    ]
+    try:
+        resp = requests.post(
+            f"{TELEGRAM_API}/setMyCommands",
+            json={"commands": commands},
+            timeout=10,
+        )
+        if resp.status_code == 200 and resp.json().get("ok"):
+            log.info("setMyCommands 已配置 %d 条命令", len(commands))
+        else:
+            log.warning("setMyCommands 返回: %s", resp.text[:200])
+    except requests.RequestException as e:
+        log.warning("setMyCommands 失败: %s", e)
+
+
 def _send_message(text: str, reply_markup: Optional[dict] = None) -> bool:
     payload: dict = {
         "chat_id": CHAT_ID,
@@ -638,6 +662,7 @@ def main() -> None:
         return
 
     log.info("Telegram Bot 已启动  chat_id=%d  API=%s", _ALLOWED_CHAT_ID, API_BASE)
+    _setup_commands()
 
     offset = 0
     consecutive_errors = 0
