@@ -113,52 +113,58 @@ Tech: Vue 3 + FastAPI + WebSocket + ECharts + CesiumJS
 ## Configuration Reference
 
 ```yaml
+# HTTP User-Agent header. Optional, leave empty to omit.
 user_agent: ''
 
 targets:
-  norad_ids: [25544]          # web
+  norad_ids: [25544]          # web: NORAD IDs to monitor, accepts multiple
 
 schedule:
-  minute: 17                  # Space-Track query minute (avoid :00/:30)
+  minute: 17                  # Space-Track query minute of the hour (avoid :00/:30 peak)
 
 files:
-  data_dir: /data
-  data_file: tle_data.jsonl
-  cache: tle_cache.json
-  run_log: tle_log.jsonl
-  max_log_size_mb: 10
+  data_dir: /data             # Data directory. Docker: /data. Windows: project dir
+  data_file: tle_data.jsonl   # Orbital data filename
+  cache: tle_cache.json       # Breakpoint recovery cache filename
+  run_log: tle_log.jsonl      # Runtime log filename
+  max_log_size_mb: 10         # Auto-rotate log when exceeding this size (MB)
 
 alerts:
-  reentry_warning_km: 200             # web
-  only_print_on_update: true          # web
-  fallback_maneuver_threshold_km: 5.0 # web
+  reentry_warning_km: 200             # web: Periapsis below this triggers reentry alert
+  only_print_on_update: true          # web: Only print on TLE changes. Disable to see every poll
+  fallback_maneuver_threshold_km: 5.0 # web: Simple maneuver threshold when xpropagator is offline (km)
 
 retry:
-  login_max_failures: 5
-  login_pause_seconds: 1800
-  request_max_retries: 3
-  request_retry_base: 5
+  login_max_failures: 5       # Max consecutive Space-Track login failures before giving up
+  login_pause_seconds: 1800   # Wait time after login failure (seconds)
+  request_max_retries: 3      # Max HTTP request retries
+  request_retry_base: 5       # Exponential backoff base (seconds): base × 2^(attempt-1)
 
 xpropagator:
-  enabled: true               # web
-  host: localhost
-  port: 50051
-  maneuver_threshold_km: 5.0  # web
+  enabled: true               # web: Enable high-precision residual analysis (requires separate xpropagator deployment)
+  host: localhost             # gRPC server host
+  port: 50051                 # gRPC server port
+  maneuver_threshold_km: 5.0  # web: Residual above this is classified as a real maneuver (km)
 
 data_source:
-  primary: celestrak
-  fallback: spacetrack
-  fallback_threshold: 3       # web
-  celestrak_interval_seconds: 7200
-  use_supplemental: false
+  primary: celestrak          # Primary source (celestrak / spacetrack)
+  fallback: spacetrack        # Fallback source (spacetrack / none) — auto-switch on primary failure
+  fallback_threshold: 3       # web: Switch to fallback after N consecutive primary failures
+  celestrak_interval_seconds: 7200    # CelesTrak polling interval (seconds). API compliance: >= 7200
+  use_supplemental: false     # Use CelesTrak supplemental GP data
 
 new_object_discovery:
-  enabled: false              # web
-  schedule_hour: 17
-  schedule_minute: 10
-  backtrack_hours: 72
-  daily_summary: false        # web
-  watched_launches: []        # web
+  enabled: false              # web: Enable new PAYLOAD discovery (requires Telegram credentials)
+  schedule_hour: 17           # Daily check hour (UTC), after the 17:00 SATCAT update
+  schedule_minute: 10         # Check minute, 10-min buffer for SATCAT refresh
+  backtrack_hours: 72         # Downtime recovery window (hours). Beyond this, send summary only
+  daily_summary: false        # web: Send a "no new objects today" confirmation even when empty
+  watched_launches: []        # web: Priority watch list. Matches push regardless of master switch
+                              # Each entry: intldes_prefix (required) + label (optional)
+                              # Example:
+                              #   - intldes_prefix: "2026-085"
+                              #     label: "Starlink G12"
+                              #   - intldes_prefix: "2026-092"
 ```
 
 Fields marked `# web` can be edited online at `/settings`, taking effect on the next polling cycle.

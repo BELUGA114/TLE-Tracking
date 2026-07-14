@@ -113,52 +113,58 @@ Space-Track SATCAT → new_object_watcher.py → Telegram 通知
 ## 配置参考
 
 ```yaml
+# HTTP 请求头 User-Agent，可选，留空则不发送
 user_agent: ''
 
 targets:
-  norad_ids: [25544]          # web
+  norad_ids: [25544]          # web: 监控的卫星 NORAD ID 列表，可多个
 
 schedule:
-  minute: 17                  # Space-Track 查询分钟（避开 :00/:30）
+  minute: 17                  # Space-Track 每小时第几分请求（避开 :00/:30 高峰）
 
 files:
-  data_dir: /data
-  data_file: tle_data.jsonl
-  cache: tle_cache.json
-  run_log: tle_log.jsonl
-  max_log_size_mb: 10
+  data_dir: /data             # 数据文件目录，Docker 建议 /data，Windows 默认项目目录
+  data_file: tle_data.jsonl   # 轨道数据文件名
+  cache: tle_cache.json       # 断点恢复缓存文件名
+  run_log: tle_log.jsonl      # 运行日志文件名
+  max_log_size_mb: 10         # 日志文件超过此大小自动轮转（MB）
 
 alerts:
-  reentry_warning_km: 200             # web
-  only_print_on_update: true          # web
-  fallback_maneuver_threshold_km: 5.0 # web
+  reentry_warning_km: 200             # web: 近地点低于此值触发再入预警
+  only_print_on_update: true          # web: 仅在 TLE 变化时打印，关闭可看每次查询结果
+  fallback_maneuver_threshold_km: 5.0 # web: xpropagator 不可用时，近/远地点变化超过此值视为机动
 
 retry:
-  login_max_failures: 5
-  login_pause_seconds: 1800
-  request_max_retries: 3
-  request_retry_base: 5
+  login_max_failures: 5       # Space-Track 登录连续失败 N 次后放弃本轮
+  login_pause_seconds: 1800   # 登录失败后等待时间（秒）
+  request_max_retries: 3      # HTTP 请求失败最大重试次数
+  request_retry_base: 5       # 指数退避基数（秒），第 N 次重试等待 base × 2^(N-1)
 
 xpropagator:
-  enabled: true               # web
-  host: localhost
-  port: 50051
-  maneuver_threshold_km: 5.0  # web
+  enabled: true               # web: 启用高精度残差分析（需自行部署 xpropagator 服务）
+  host: localhost             # gRPC 服务地址
+  port: 50051                 # gRPC 服务端口
+  maneuver_threshold_km: 5.0  # web: 残差超过此值判定为真实机动（km）
 
 data_source:
-  primary: celestrak
-  fallback: spacetrack
-  fallback_threshold: 3       # web
-  celestrak_interval_seconds: 7200
-  use_supplemental: false
+  primary: celestrak          # 主数据源（celestrak / spacetrack）
+  fallback: spacetrack        # 备数据源（spacetrack / none）——主源故障时自动切换
+  fallback_threshold: 3       # web: 主源连续失败 N 次后切换备源
+  celestrak_interval_seconds: 7200    # CelesTrak 轮询间隔（秒），API 合规要求 >= 7200
+  use_supplemental: false     # 是否使用 CelesTrak 补充数据（sup-gp）
 
 new_object_discovery:
-  enabled: false              # web
-  schedule_hour: 17
-  schedule_minute: 10
-  backtrack_hours: 72
-  daily_summary: false        # web
-  watched_launches: []        # web
+  enabled: false              # web: 启用新 PAYLOAD 编目发现（需 Telegram 凭据）
+  schedule_hour: 17           # 每天几点检查（UTC），默认 17:00 SATCAT 更新后
+  schedule_minute: 10         # 几点几分，留 10 分钟给 SATCAT 刷新
+  backtrack_hours: 72         # 宕机恢复窗口（小时），超过此时间仅发摘要不逐条推送
+  daily_summary: false        # web: 无新对象时也发一条 "今日无新" 的每日确认
+  watched_launches: []        # web: 关注发射批次列表，命中后无论总开关均推送
+                              # 每项格式: intldes_prefix (必填) + label (可选)
+                              # 示例:
+                              #   - intldes_prefix: "2026-085"
+                              #     label: "星链G12"
+                              #   - intldes_prefix: "2026-092"
 ```
 
 标记 `# web` 的字段可在 `/settings` 页面在线修改，下一轮询周期生效。
