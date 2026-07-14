@@ -79,6 +79,8 @@ class NewObjectWatcher:
                         self._watched[prefix] = label
 
         self._cursor_path = os.path.join(data_dir, CURSOR_FILENAME)
+        # 确保目录存在——Docker 下 /data 由 volume mount 创建，其他场景可能不存在
+        os.makedirs(data_dir, exist_ok=True)
         self._last_check_date: str = ""  # ISO date (YYYY-MM-DD)，当天已检查过则跳过
 
         # 加载或初始化游标
