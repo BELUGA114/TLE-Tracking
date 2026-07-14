@@ -1259,13 +1259,22 @@ def _check_config_reload(prev_data: dict[int, dict], last_hash: dict[int, str]) 
             changed.append(f"new_object_discovery.daily_summary: {_new_watcher._daily_summary} → {new_disc_summary}")
             _new_watcher._daily_summary = new_disc_summary
 
-        new_watched_set = {str(w).strip().upper() for w in new_disc_watched if str(w).strip()}
-        if new_watched_set != _new_watcher._watched:
+        new_watched: dict[str, str] = {}
+        for item in new_disc_watched:
+            if isinstance(item, str):
+                prefix = item.strip().upper()
+                if prefix:
+                    new_watched[prefix] = ""
+            elif isinstance(item, dict):
+                prefix = str(item.get("intldes_prefix", "")).strip().upper()
+                if prefix:
+                    new_watched[prefix] = str(item.get("label", "")).strip()
+        if new_watched != _new_watcher._watched:
             changed.append(
                 f"new_object_discovery.watched_launches: "
-                f"{len(_new_watcher._watched)} → {len(new_watched_set)} 个前缀"
+                f"{len(_new_watcher._watched)} → {len(new_watched)} 个前缀"
             )
-            _new_watcher._watched = new_watched_set
+            _new_watcher._watched = new_watched
 
     if changed:
         log.info("[config-reload] 检测到配置变更: %s", "; ".join(changed))
