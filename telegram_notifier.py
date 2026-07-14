@@ -121,7 +121,7 @@ class TelegramNotifier:
         """转义 HTML 特殊字符，用于 Telegram HTML parse mode"""
         return html.escape(str(text), quote=False)
 
-    def send_debut(self, record: dict, watched: bool = False) -> bool:
+    def send_debut(self, record: dict, watched: bool = False, label: str = "") -> bool:
         """格式化并发送一条新编目通知。
 
         satcat_debut 返回的字段参考（modeldef 确认）：
@@ -143,7 +143,12 @@ class TelegramNotifier:
         site = record.get("SITE")
         country = record.get("COUNTRY")
 
-        watched_label = "  <i>🔍 关注中</i>" if watched else ""
+        if watched and label:
+            watched_label = f"  <i>🔍 关注中 — {e(label)}</i>"
+        elif watched:
+            watched_label = "  <i>🔍 关注中</i>"
+        else:
+            watched_label = ""
 
         # 轨道参数行：只在有数据时才显示
         orbit_parts: list[str] = []

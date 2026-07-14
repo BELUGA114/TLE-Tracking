@@ -111,7 +111,7 @@
           v-model="form.nod_watched_str"
           class="input"
           rows="4"
-          placeholder="2026-085&#10;2026-092"
+          placeholder="2026-085 Starlink G12-3&#10;2026-092"
           style="resize: vertical; min-height: 80px;"
         ></textarea>
       </fieldset>
@@ -208,7 +208,13 @@ async function loadConfig() {
     const nod = cfg.new_object_discovery || {}
     form.nod_enabled = nod.enabled ?? false
     form.nod_daily_summary = nod.daily_summary ?? false
-    form.nod_watched_str = (nod.watched_launches || []).join("\n")
+    const watched: Array<{ intldes_prefix?: string; label?: string } | string> = nod.watched_launches || []
+    form.nod_watched_str = watched
+      .map((item) => {
+        if (typeof item === "string") return item
+        return item.label ? `${item.intldes_prefix || ""} ${item.label}` : (item.intldes_prefix || "")
+      })
+      .join("\n")
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     error.value = `加载配置失败: ${msg}`
@@ -257,9 +263,17 @@ async function save() {
       enabled: form.nod_enabled,
       daily_summary: form.nod_daily_summary,
       watched_launches: form.nod_watched_str
-        .split(/[\n,，]+/)
+        .split(/\n/)
         .map(s => s.trim())
-        .filter(s => s.length > 0),
+        .filter(s => s.length > 0)
+        .map(s => {
+          const spaceIdx = s.indexOf(" ")
+          if (spaceIdx === -1) return { intldes_prefix: s }
+          return {
+            intldes_prefix: s.slice(0, spaceIdx),
+            label: s.slice(spaceIdx + 1).trim(),
+          }
+        }),
     },
   }
 
