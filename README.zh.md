@@ -62,14 +62,14 @@ new_object_discovery:
 ### 3. 运行
 
 ```bash
-python spacetrack_monitor.py       # 监控 + 内建 Web 服务
-.venv\Scripts\python.exe telegram_bot.py   # Telegram Bot（独立进程）
+python spacetrack_monitor.py    # 监控 + 内建 Web 服务
+python telegram_bot.py          # Telegram Bot（独立进程）
 ```
 
 ### 4. Docker
 
 ```bash
-docker compose up -d               # 监控 + 仪表盘 + Bot 一键启动
+docker compose up -d            # 监控 + 仪表盘 + Bot 一键启动
 ```
 
 访问 `http://localhost:8000`。Bot 凭据配置后自动启动。预构建镜像：`ghcr.io/beluga114/tle-tracking:latest`。
@@ -87,7 +87,7 @@ HTTPS_PROXY=http://host:port
 
 ```bash
 uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000   # 后端
-cd frontend && pnpm install && pnpm dev                         # 前端 (:5173)
+cd frontend && pnpm install && pnpm dev                        # 前端 (:5173)
 ```
 
 ## 新对象发现 & Telegram Bot

@@ -13,10 +13,8 @@
 
 from __future__ import annotations
 
-import json
 import os
 import sys
-from typing import Optional
 
 import requests
 from dotenv import load_dotenv
@@ -57,11 +55,8 @@ def _server_alive() -> bool:
         return False
 
 
-# ═══════════════════════════════════════════
-# 测试 1: 内部函数（无需服务器）
-# ═══════════════════════════════════════════
-
 def test_internal_functions() -> None:
+    """测试 1: 内部函数（无需服务器）—— 验证命令解析、键盘构建、配置读写纯逻辑。"""
     print("\n── 测试1: 内部函数 ──")
 
     # 导入 bot 模块的内部函数
@@ -157,11 +152,8 @@ def test_internal_functions() -> None:
         check("假 chat_id 的回调被静默忽略", False, str(e))
 
 
-# ═══════════════════════════════════════════
-# 测试 2: HTTP API 端点（需要服务器）
-# ═══════════════════════════════════════════
-
 def test_http_endpoints() -> None:
+    """测试 2: HTTP API 端点（需要服务器）—— 验证 REST 接口的读写一致性和输入校验。"""
     print("\n── 测试2: HTTP API 端点 ──")
 
     if not _server_alive():
@@ -190,7 +182,6 @@ def test_http_endpoints() -> None:
 
         # 记录原始值供恢复
         original_enabled = nod.get("enabled", False)
-        original_watched = nod.get("watched_launches", [])
 
         # PUT toggle enabled
         new_enabled = not original_enabled
@@ -298,11 +289,8 @@ def test_http_endpoints() -> None:
     check("PUT 非白名单字段 schedule_hour 返回 400", resp.status_code == 400)
 
 
-# ═══════════════════════════════════════════
-# 测试 3: 向后兼容性
-# ═══════════════════════════════════════════
-
 def test_backward_compat() -> None:
+    """测试 3: 向后兼容性 —— 旧格式 list[str] 和新格式 list[dict] 均能正确解析。"""
     print("\n── 测试3: 向后兼容性 ──")
     import tempfile
     from new_object_watcher import NewObjectWatcher
@@ -333,13 +321,8 @@ def test_backward_compat() -> None:
     check("匹配项带有 label", matched[0].get("_matched_label") == "Starlink")
 
 
-# ═══════════════════════════════════════════
-# main
-# ═══════════════════════════════════════════
-
 def main() -> None:
     print("Telegram Bot 功能测试")
-    print("=" * 50)
 
     # 检查凭据
     token = os.getenv("TELEGRAM_BOT_TOKEN", "")
@@ -354,8 +337,7 @@ def main() -> None:
     test_http_endpoints()
     test_backward_compat()
 
-    print(f"\n{'=' * 50}")
-    print(f"结果: {PASSED} 通过, {FAILED} 失败, {PASSED + FAILED} 总计")
+    print(f"\n结果: {PASSED} 通过, {FAILED} 失败, {PASSED + FAILED} 总计")
     if FAILED:
         print("有测试失败")
         sys.exit(1)

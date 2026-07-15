@@ -31,6 +31,8 @@ import yaml
 # CelesTrak 拉取模块（可选，主源为 celestrak 时启用）
 if TYPE_CHECKING:
     import celestrak_fetcher as ct
+    from new_object_watcher import NewObjectWatcher
+    from telegram_notifier import TelegramNotifier
 
 try:
     import celestrak_fetcher as ct
@@ -1125,7 +1127,7 @@ def run_celestrak_cycle(
     return any_success
 
 
-# ── 配置热重载 ──────────────────────────────────────────────────────────────────────
+# 配置热重载
 
 _config_mtime: float = 0.0
 
@@ -1321,15 +1323,13 @@ def main() -> None:
 
     write_log_message("程序启动")
 
-    # 初始化 Telegram 通知器
-    _notifier = TelegramNotifier(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID)
-
-    # 初始化新对象发现模块
+    # 初始化 Telegram 通知器和新对象发现模块
     if _DISCOVERY_MODULE_OK:
+        _notifier = TelegramNotifier(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID)
         _new_watcher = NewObjectWatcher(_new_obj_cfg, DATA_DIR)
     else:
-        # 模块未找到时创建一个禁用的占位实例，避免后续 None 检查
-        _new_watcher = NewObjectWatcher({"enabled": False}, DATA_DIR)
+        _notifier = None  # type: ignore[assignment]
+        _new_watcher = None  # 模块未找到时设为 None，后续轮询跳过发现逻辑
 
     # 加载 Space-Track 缓存（仅 spacetrack 模式使用，celestrak 模式中闲置）
     cache = LocalCache(CACHE_FILE)
