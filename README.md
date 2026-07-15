@@ -62,14 +62,14 @@ Fields marked `# web:` can be edited from the Dashboard Settings page with hot-r
 ### 3. Run
 
 ```bash
-python spacetrack_monitor.py                  # Monitor + built-in web server
-.venv\Scripts\python.exe telegram_bot.py       # Telegram Bot (separate process)
+python spacetrack_monitor.py    # Monitor + built-in web server
+python telegram_bot.py          # Telegram Bot (separate process)
 ```
 
 ### 4. Docker
 
 ```bash
-docker compose up -d          # Monitor + Dashboard + Bot
+docker compose up -d            # Monitor + Dashboard + Bot
 ```
 
 Visit `http://localhost:8000`. Bot auto-starts when Telegram credentials are configured. Pre-built image: `ghcr.io/beluga114/tle-tracking:latest`.
@@ -87,7 +87,7 @@ The container inherits these via `docker-compose.yml`. `NO_PROXY=localhost,127.0
 
 ```bash
 uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000   # Backend
-cd frontend && pnpm install && pnpm dev                         # Frontend (:5173)
+cd frontend && pnpm install && pnpm dev                        # Frontend (:5173)
 ```
 
 ## New Object Discovery & Telegram Bot

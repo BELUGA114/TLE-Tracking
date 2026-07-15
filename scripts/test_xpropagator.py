@@ -40,7 +40,7 @@ def test_single_propagation():
     print("测试 2: 单次 TLE 轨道预报")
     print("=" * 60)
     
-    # ISS TLE 示例
+    # 用真实 ISS TLE 验证单次 SGP4 预报和 ECI 坐标转换
     norad_id = 25544
     name = "ISS (ZARYA)"
     tle1 = "1 25544U 98067A   26116.52257038  .00009972  00000-0  18903-3 0  9999"
@@ -74,8 +74,7 @@ def test_maneuver_detection():
     print("测试 3: 残差分析 - 模拟真实机动场景")
     print("=" * 60)
     
-    # 真实的 TLE 数据（BlueBird 7 卫星，有明显轨道变化）
-    # 蓝色起源新格伦第三次发射，一级回来了，卫星也回来了
+    # BlueBird 7 卫星有明显轨道变化——验证残差分析能否正确识别真实机动
     prev = {
         "norad": 68765,
         "name": "BLUE_BIRD",
@@ -96,7 +95,7 @@ def test_maneuver_detection():
     print(f"旧 TLE 历元: {prev['epoch']}")
     print(f"新 TLE 历元: {orbit['epoch']}")
     print(f"\n轨道根数变化:")
-    # TLE Line 2 格式：列 8-16=倾角, 列 26-33=偏心率
+    # 直接从 TLE 字符串解析轨道根数，避免依赖中间数据结构的字段名差异
     print(f"  倾角:     {prev['tle2'][8:16].strip()}° → {orbit['tle2'][8:16].strip()}°")
     print(f"  偏心率:   0.{prev['tle2'][26:33]} → 0.{orbit['tle2'][26:33]}")
     print(f"  BSTAR:    {prev['tle1'].split()[4]} → {orbit['tle1'].split()[4]}")
@@ -122,8 +121,7 @@ def test_correction_detection():
     print("测试 4: 残差分析 - 模拟解算修正场景")
     print("=" * 60)
     
-    # 使用只有微小差异的TLE
-    # 这是 Space-Track 常见的情况：同一时刻发布多个 TLE 解算版本
+    # Space-Track 常见同一历元发布多个解算版本——微小差异应判定为修正而非机动
     prev = {
         "norad": 25544,
         "name": "ISS (ZARYA)",
@@ -135,7 +133,7 @@ def test_correction_detection():
     orbit = {
         "norad": 25544,
         "name": "ISS (ZARYA)",
-        "epoch": "2026-04-29T10:40:00",  # ← 相同历元
+        "epoch": "2026-04-29T10:40:00",
         "tle1": "1 25544U 98067A   26119.43750000  .00003201  00000-0  17000-3 0  9981",
         "tle2": "2 25544  51.6486 208.5000 0006400  60.5000  25.0000 15.49500001123400",
     }
@@ -173,7 +171,7 @@ def test_no_tle_synthesis():
     print("测试 5: 无 TLE 情况下的合成与残差分析")
     print("=" * 60)
     
-    # 模拟 CelesTrak 返回的数据（无 TLE_LINE1/2，只有 _raw_elements）
+    # CelesTrak 不返回 TLE_LINE1/2，只返回 _raw_elements——需验证自动合成 TLE 后残差分析仍正确
     from datetime import timezone
     
     prev_raw = {
@@ -187,8 +185,8 @@ def test_no_tle_synthesis():
         "period": 92.9,
         "ecc": 0.0006300,
         "bstar": 0.00012000,
-        "tle1": "",  # ← 空字符串（CelesTrak 不提供）
-        "tle2": "",  # ← 空字符串
+        "tle1": "",
+        "tle2": "",
         "tle_hash": "",
         "_raw_elements": {
             "NORAD_CAT_ID": 25544,
@@ -222,8 +220,8 @@ def test_no_tle_synthesis():
         "period": 92.9,
         "ecc": 0.0006317,
         "bstar": 0.00012345,
-        "tle1": "",  # ← 空字符串
-        "tle2": "",  # ← 空字符串
+        "tle1": "",
+        "tle2": "",
         "tle_hash": "",
         "_raw_elements": {
             "NORAD_CAT_ID": 25544,
