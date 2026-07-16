@@ -17,6 +17,8 @@ services:
       # - ./.env:/app/.env
     environment:
       - TZ=Asia/Shanghai
+      # 数据目录
+      - DATA_DIR=/data
       # 代理
       - HTTP_PROXY=${HTTP_PROXY:-}
       - HTTPS_PROXY=${HTTPS_PROXY:-}
