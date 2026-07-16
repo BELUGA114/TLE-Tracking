@@ -184,7 +184,6 @@ def _resolve_tle(orbit_dict: dict) -> tuple[str, str] | None:
     """从 orbit dict 获取 TLE，优先使用现成数据，缺失时从 _raw_elements 合成。"""
     tle1, tle2 = orbit_dict.get("tle1", ""), orbit_dict.get("tle2", "")
     if tle1 and tle2:  # 完整性校验
-        log.debug("xprop: 使用现成 TLE [NORAD %d]", orbit_dict.get("norad"))
         return tle1, tle2
 
     raw = orbit_dict.get("_raw_elements")
@@ -192,15 +191,12 @@ def _resolve_tle(orbit_dict: dict) -> tuple[str, str] | None:
         log.warning("xprop: 无 TLE 且无 _raw_elements [NORAD %d]", orbit_dict.get("norad"))
         return None
 
-    log.info("xprop: 无 TLE，从 _raw_elements 合成 [NORAD %d]", orbit_dict.get("norad"))
+    log.debug("xprop: 无 TLE，从 _raw_elements 合成 [NORAD %d]", orbit_dict.get("norad"))
     try:
         result = gp_json_to_tle_lines(raw)
-        log.info("xprop: TLE 合成成功 [NORAD %d]", orbit_dict.get("norad"))
         return result
     except Exception as e:
         log.error("xprop: TLE 合成失败 [NORAD %d]: %s", orbit_dict.get("norad"), e)
-        import traceback
-        log.error(traceback.format_exc())
         return None
 
 def classify_change_xprop(
@@ -290,7 +286,7 @@ def is_service_alive(host: str = XPROP_HOST, port: int = XPROP_PORT) -> bool:
         stub = pb2_grpc.PropagatorStub(channel)
         resp = stub.Info(empty_pb2.Empty(), timeout=_CONNECT_TIMEOUT)
         channel.close()
-        log.info("xpropagator 已连接：%s %s", resp.name, resp.version)
+        log.debug("xpropagator 已连接：%s %s", resp.name, resp.version)
         return True
     except Exception as exc:
         log.warning("xpropagator 服务探活失败: %s", exc)

@@ -85,7 +85,6 @@ def _load_config() -> dict:
         try:
             with open(path, "r", encoding="utf-8") as f:
                 cfg = yaml.safe_load(f) or {}
-            logging.getLogger(__name__).debug("已加载配置文件(%s):%s", source, path)
             _CONFIG_PATH = path
             return cfg
         except FileNotFoundError:
@@ -206,7 +205,6 @@ def rotate_file_if_needed(filepath: str, max_size: int = MAX_LOG_SIZE) -> None:
             if os.path.exists(backup):
                 os.remove(backup)
             os.rename(filepath, backup)
-            log.info("日志文件 %s 已轮转（>%d MB）", filepath, max_size // (1024 * 1024))
     except OSError as e:
         log.error("日志轮转失败: %s", e)
 
@@ -262,9 +260,9 @@ class LocalCache:
             self._data["raw_records"] = raw_records
             # 加载待处理标记（用于断点恢复）
             self._data["pending"] = raw.get("pending", False)
-            log.info("已加载本地缓存：%s", self._path)
+            log.debug("已加载本地缓存：%s", self._path)
         except FileNotFoundError:
-            log.debug("缓存文件 %s 不存在，将从头开始", self._path)
+            pass
         except (OSError, json.JSONDecodeError, ValueError) as e:
             log.warning("缓存文件损坏或读取失败（将从头开始）: %s", e)
 
@@ -337,20 +335,10 @@ def next_scheduled_time(minute: int = SCHEDULED_MINUTE) -> datetime:
 
 def wait_until(target: datetime) -> None:
     """阻塞等待到指定时刻（每分钟唤醒一次，便于响应 Ctrl-C）"""
-    # 只在首次打印等待信息
-    first_log = True
     while True:
         secs = (target - datetime.now(timezone.utc)).total_seconds()
         if secs <= 0:
             return
-        # 首次或剩余时间少于 10 分钟时打印日志
-        if first_log or secs < 600:
-            log.info(
-                "下次查询：%s UTC（%.0f 分钟后）",
-                target.strftime("%H:%M"),
-                secs / 60,
-            )
-            first_log = False
         time.sleep(min(secs, 60))
 
 
@@ -472,7 +460,7 @@ class SpaceTrackSession:
             return self.login_with_retry()
         age = time.monotonic() - self._logged_in_at
         if age > SESSION_MAX_AGE:
-            log.info("会话已存在 %.0f 分钟，主动刷新登录...", age / 60)
+            log.debug("会话已存在 %.0f 分钟，主动刷新登录...", age / 60)
             self.logout()
             self._session = requests.Session()
             if SPACE_TRACK_USER_AGENT:
@@ -533,7 +521,6 @@ class SpaceTrackSession:
 
 def fetch_bulk_tle(st: SpaceTrackSession) -> "list[dict] | FetchStatus":
     """批量拉取最近 1 小时内发布的所有 TLE（消耗 1 次 gp 配额）"""
-    log.info("请求批量 TLE（最近 1 小时发布）...")
     result = st.get(BULK_TLE_URL)
     if isinstance(result, FetchStatus):
         return result
@@ -555,7 +542,6 @@ def fetch_bulk_with_relogin(st: SpaceTrackSession) -> Optional[list[dict]]:
     result = fetch_bulk_tle(st)
     if result is FetchStatus.RELOGIN:
         # 会话过期，重新登录后不立即重试（避免同一小时内第 2 次 gp 请求）
-        log.info("会话过期，重新登录...")
         st.relogin()
         return None
     if isinstance(result, FetchStatus):
@@ -747,11 +733,6 @@ def parse_orbit(record: dict) -> dict:
             periapsis = calculated["periapsis"]
             apoapsis = calculated["apoapsis"]
             period = calculated["period"]
-            log.debug(
-                "[NORAD %d] API 未提供完整轨道参数，已从根数计算: "
-                "近地点=%.1f km, 远地点=%.1f km, 周期=%.3f min",
-                norad_id, periapsis, apoapsis, period,
-            )
         else:
             # 无法计算，使用默认值
             periapsis = float(periapsis_raw or 0)
@@ -959,7 +940,7 @@ def restore_from_log(norad_ids: list[int]) -> dict[int, dict]:
                 break
         
         if prev_data:
-            log.info("已从轨道数据文件恢复 %d 个目标的历史状态", len(prev_data))
+            log.debug("已从轨道数据文件恢复 %d 个目标的历史状态", len(prev_data))
     
     except OSError as e:
         log.warning("轨道数据文件读取失败: %s", e)
@@ -1058,10 +1039,9 @@ def cold_start_if_needed(norad_ids: list[int], prev_data: dict[int, dict]) -> No
         except ValueError as e:
             log.error("[冷启动][%d] 轨道数据解析失败，跳过: %s", nid, e)
             continue
-        log.info("[冷启动][%d] %s 初始基准已入库", nid, orbit["name"])
+        log.debug("[冷启动][%d] %s 初始基准已入库", nid, orbit["name"])
         log_record(orbit, change_type="initial", source=record.get("_source", "celestrak"))
         prev_data[nid] = orbit
-    log.info("冷启动完成")
 
 
 def run_celestrak_cycle(
@@ -1079,7 +1059,6 @@ def run_celestrak_cycle(
     for nid in NORAD_IDS:
         secs = ct.seconds_since_last_query(nid)
         if secs < CELESTRAK_INTERVAL:
-            log.debug("[CelesTrak][%d] 距上次查询 %.0f 分钟，跳过本轮", nid, secs / 60)
             continue  # 跳过不算成功也不算失败
 
         record = ct.fetch_single(
@@ -1295,24 +1274,17 @@ def main() -> None:
         log.error("data_source.primary=celestrak，但 celestrak_fetcher.py 未找到，请确认文件存在")
         raise SystemExit(1)
 
-    log.info("TLE-Tracking 轨道监控  主源: %s  备源: %s", PRIMARY_SOURCE, FALLBACK_SOURCE)
-    log.info("目标: %s", ", ".join(str(i) for i in NORAD_IDS))
+    log.info("TLE-Tracking 主源:%s 备源:%s | 目标:%s | 第%02d分 预警:<%dkm",
+             PRIMARY_SOURCE, FALLBACK_SOURCE,
+             ",".join(str(i) for i in NORAD_IDS),
+             SCHEDULED_MINUTE, REENTRY_WARNING_KM)
 
     if XPROP_ACTIVE:
         alive = is_service_alive(XPROP_HOST, XPROP_PORT)
         if not alive:
             log.warning("xpropagator 配置已启用但服务未响应（%s:%d），将自动降级", XPROP_HOST, XPROP_PORT)
-    else:
-        if XPROP_ENABLED and not _XPROP_MODULE_OK:
-            log.warning("xpropagator 已启用但模块未找到")
-        elif not XPROP_ENABLED:
-            log.info("xpropagator 已禁用，使用简单阈值")
-
-    log.info(
-        "调度: 每小时第 %02d 分 | 再入预警: <%d km | SGP4 可靠下限: %d km | 数据: %s | 日志: %s",
-        SCHEDULED_MINUTE, REENTRY_WARNING_KM, SGP4_RELIABLE_FLOOR_KM, DATA_FILE or "关闭", LOG_FILE or "关闭",
-    )
-    print()
+    elif XPROP_ENABLED and not _XPROP_MODULE_OK:
+        log.warning("xpropagator 已启用但模块未找到")
 
     write_log_message("程序启动")
 
@@ -1377,10 +1349,10 @@ def main() -> None:
                     first_run = False
                     secs_since = cache.seconds_since_last_fetch()
                     if secs_since == float("inf"):
-                        log.info("无历史记录，将立即执行首次查询")
+                        log.debug("无历史记录，将立即执行首次查询")
                     elif secs_since < MIN_REQUEST_INTERVAL:
                         wait_seconds = MIN_REQUEST_INTERVAL - secs_since
-                        log.warning(
+                        log.debug(
                             "距上次请求 %.0f 分钟，需等待 %.0f 分钟（速率限制保护）",
                             secs_since / 60,
                             wait_seconds / 60,
@@ -1461,7 +1433,6 @@ def main() -> None:
                     # 校验时间戳范围：拒绝损坏或未初始化的值（0、负数），防止速率保护因错误数据卡死
                     if raw_ts is not None and raw_ts > 1e8 and raw_ts <= now:
                         celestrak_last_poll = raw_ts
-                        log.debug("已加载 CelesTrak 轮询缓存，上次轮询时间戳: %s", celestrak_last_poll)
                     else:
                         log.warning("CelesTrak 轮询缓存时间戳无效（%s），将忽略", raw_ts)
         except (OSError, json.JSONDecodeError) as e:
@@ -1473,7 +1444,7 @@ def main() -> None:
                 secs_since = time.time() - celestrak_last_poll
                 if secs_since < CELESTRAK_INTERVAL:
                     wait_seconds = CELESTRAK_INTERVAL - secs_since
-                    log.warning(
+                    log.debug(
                         "距上次 CelesTrak 轮询 %.0f 分钟，需等待 %.0f 分钟（速率限制保护）",
                         secs_since / 60,
                         wait_seconds / 60,
@@ -1495,7 +1466,7 @@ def main() -> None:
                 else:
                     write_log_message(f"距上次 CelesTrak 轮询 {secs_since / 60:.0f} 分钟，满足速率限制")
             else:
-                log.info("无 CelesTrak 轮询历史记录，将立即执行首次查询")
+                log.debug("无 CelesTrak 轮询历史记录，将立即执行首次查询")
                 write_log_message("无 CelesTrak 轮询历史记录，将立即执行首次查询")
 
             _check_config_reload(prev_data, last_hash)
@@ -1559,4 +1530,4 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print("\n\n已停止监控")
+        log.info("已停止监控")
