@@ -356,9 +356,21 @@ def _spoof_catalog_id(tle1: str, tle2: str, fake_id: int) -> tuple[str, str]:
 # TLE 合成辅助函数
 # 用于在 TLE_LINE1/TLE_LINE2 缺失时（5位编号耗尽后 ~2026-07-20）从 GP JSON 根数重建 TLE 两行。
 # xpropagator gRPC 接口只接受 TLE 文本，合成在客户端完成，服务端完全透明。
-#
-# 注意：当前实现已通过 5 位编号范围内的样本验证。
-# 5位编号耗尽后需验证合成逻辑在新编目体系下的正确性（历元格式、编号处理等）。
+
+# Alpha-5 编目号编码表：100000-339999 映射到 5 字符字母数字格式
+# A=10, B=11, ..., Z=33，跳过 I 和 O（避免与 1 和 0 混淆）
+_ALPHA5_LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ"  # 24 个字母，不含 I/O
+
+
+def _encode_alpha5(norad_id: int) -> str:
+    """将 NORAD 编目号编码为 TLE 5 字符格式（≥100000 时使用 Alpha-5）。"""
+    if norad_id < 100000:
+        return f"{norad_id:5d}"
+    tens = norad_id // 10000 - 10  # 10→0, 11→1, ..., 33→23
+    if 0 <= tens < len(_ALPHA5_LETTERS):
+        return f"{_ALPHA5_LETTERS[tens]}{norad_id % 10000:04d}"
+    # 超出 Alpha-5 范围（>339999），回退到截断
+    return f"{min(norad_id, 99999):5d}"
 
 def _epoch_to_tle_str(epoch_str: str) -> str:
     """将 ISO 历元字符串转换为 TLE 历元格式 YYDDD.DDDDDDDD"""
@@ -424,16 +436,12 @@ def _format_intl_designator(object_id: str) -> str:
 def gp_json_to_tle_lines(gp: dict) -> tuple[str, str]:
     """
     从 GP JSON 根数合成标准 TLE 两行（各 69 字符）
-    
-    编目号使用 min(NORAD_CAT_ID, 99999) 占位，调用方会通过 _spoof_catalog_id
-    替换为基于真实 norad_id 的伪 ID，因此这里的截断不影响最终结果
-    
-    5位编号耗尽后作为回退路径激活
+
+    ≥100000 的编目号使用 Alpha-5 编码（如 100000→A0000）。
+    xpropagator 路径后续会通过 _spoof_catalog_id 替换为伪 ID，编码格式不影响传播。
     """
     norad_id = int(gp.get("NORAD_CAT_ID") or 0)
-    # 占位用，进入 propagate_tle 后必然被 _spoof_catalog_id 覆盖
-    cat_id = min(norad_id, 99999)
-    cat_str = f"{cat_id:5d}"
+    cat_str = _encode_alpha5(norad_id)
     classification = str(gp.get("CLASSIFICATION_TYPE") or "U")[0]
     intl_desig = _format_intl_designator(str(gp.get("OBJECT_ID") or ""))
     epoch_tle = _epoch_to_tle_str(str(gp.get("EPOCH") or ""))
