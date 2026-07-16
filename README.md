@@ -51,13 +51,11 @@ data_source:
   fallback: "spacetrack"
 
 new_object_discovery:
-  enabled: true              # Enable discovery
-  watched_launches:          # Optional watch list
+  enabled: true              # Push all new PAYLOAD objects
+  watched_launches:          # Always active (ignores enabled), prefix match
     - intldes_prefix: "2026-085"
       label: "Starlink G12-3"
 ```
-
-Fields marked `# web:` can be edited from the Dashboard Settings page with hot-reload.
 
 ### 3. Run
 
@@ -92,7 +90,7 @@ cd frontend && pnpm install && pnpm dev                        # Frontend (:5173
 
 ## New Object Discovery & Telegram Bot
 
-Queries Space-Track SATCAT daily at 17:10 UTC for newly cataloged PAYLOAD objects, pushes to Telegram.
+When `enabled: true`, pushes ALL newly cataloged PAYLOAD objects. `watched_launches` runs independently — prefix matches always push regardless of the master switch or `enabled` status.
 
 ```
 Space-Track SATCAT → new_object_watcher.py → Telegram notification
