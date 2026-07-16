@@ -21,7 +21,7 @@ from dotenv import load_dotenv
 _THIRD_PARTY_LOGGERS = ("httpx", "urllib3", "asyncio", "aiohttp")
 
 # 有效的日志级别名
-_LEVEL_NAMES = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+_LEVEL_NAMES = {"DEBUG", "INFO", "WARNING", "ERROR"}
 
 
 def _parse_level(name: str) -> int:
