@@ -202,7 +202,7 @@ class NewObjectWatcher:
 
         session 为 SpaceTrackSession 实例（需已登录）。
         """
-        log.info("查询 satcat_debut（过去 24h PAYLOAD 编目事件）...")
+        log.debug("查询 satcat_debut")
         result = session.get(SATCAT_DEBUT_URL)
 
         # session.get 可能返回 FetchStatus 枚举或 requests.Response
@@ -219,7 +219,7 @@ class NewObjectWatcher:
             log.warning("satcat_debut JSON 解析失败: %s", e)
             return None
 
-        log.info("satcat_debut 返回 %d 条记录", len(data))
+        log.debug("satcat_debut 返回 %d 条记录", len(data))
         return data
 
     # 按 DEBUT 时间戳去重（游标之前的不推送），按 watched_launches 列表分拣

@@ -7,14 +7,12 @@ Bot /status 命令调用此接口展示状态，不依赖 watcher 进程。
 from __future__ import annotations
 
 import json
-import logging
 import os
 from datetime import datetime, timezone, timedelta
 
 import yaml
 from fastapi import APIRouter
 
-log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/discovery", tags=["discovery"])
 
 # 项目根目录（backend/routers/ 向上三级）

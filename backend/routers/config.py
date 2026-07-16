@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import os
 
 import yaml
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/config", tags=["config"])
 security = HTTPBearer(auto_error=False)
 

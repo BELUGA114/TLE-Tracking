@@ -131,7 +131,7 @@ def _setup_commands() -> None:
             timeout=10,
         )
         if resp.status_code == 200 and resp.json().get("ok"):
-            log.info("setMyCommands 已配置 %d 条命令", len(commands))
+            log.debug("setMyCommands 已配置 %d 条命令", len(commands))
         else:
             log.warning("setMyCommands 返回: %s", resp.text[:200])
     except requests.RequestException as e:
