@@ -19,11 +19,26 @@ router = APIRouter(prefix="/api/discovery", tags=["discovery"])
 
 # 项目根目录（backend/routers/ 向上三级）
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-# 数据目录和游标文件路径，与 spacetrack_monitor.py 保持一致
-DATA_DIR = os.environ.get("DATA_DIR") or os.path.join(_PROJECT_ROOT, "data")
-CURSOR_PATH = os.path.join(DATA_DIR, "new_object_cursor.json")
 CONFIG_PATH = os.path.join(_PROJECT_ROOT, "config.yaml")
+
+
+# 模块级配置缓存，供 DATA_DIR 解析使用
+def _load_config_cached() -> dict:
+    try:
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f) or {}
+    except (FileNotFoundError, OSError, yaml.YAMLError):
+        return {}
+
+
+_cfg = _load_config_cached()
+
+DATA_DIR: str = (
+    os.environ.get("DATA_DIR")
+    or _cfg.get("files", {}).get("data_dir")
+    or os.path.join(_PROJECT_ROOT, "data")
+)
+CURSOR_PATH = os.path.join(DATA_DIR, "new_object_cursor.json")
 
 
 def _read_cursor() -> dict:
