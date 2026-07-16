@@ -10,10 +10,16 @@ logging.basicConfig(
     format='%(asctime)s %(levelname)s %(name)s: %(message)s'
 )
 
+import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from xpropagator_client import (
     is_service_alive,
     propagate_tle,
     classify_change_xprop,
+    _encode_alpha5,
+    gp_json_to_tle_lines,
 )
 from datetime import datetime, timezone
 import sys
@@ -264,16 +270,110 @@ def test_no_tle_synthesis():
         return False
 
 
+def test_alpha5_encoding():
+    """测试 6: Alpha-5 编目号编码"""
+    print("\n" + "=" * 60)
+    print("测试 6: Alpha-5 编目号编码")
+    print("=" * 60)
+
+    # Space-Track 官方示例
+    cases = [
+        (25544,   "25544"),   # 5位编号不受影响
+        (99999,   "99999"),
+        (100000,  "A0000"),   # Alpha-5 起始
+        (148493,  "E8493"),   # 官方示例
+        (182931,  "J2931"),   # 跳过 I
+        (234018,  "P4018"),   # 跳过 O
+        (301928,  "W1928"),   # 官方示例
+        (339999,  "Z9999"),   # Alpha-5 上限
+        (180000,  "J0000"),   # I=18，应跳过
+        (230000,  "P0000"),   # O=23，应跳过
+        (340000,  "99999"),   # 超出范围回退
+    ]
+
+    all_ok = True
+    for norad_id, expected in cases:
+        result = _encode_alpha5(norad_id)
+        ok = result == expected
+        if not ok:
+            all_ok = False
+        mark = "OK" if ok else f"FAIL (got {result})"
+        print(f"  {norad_id:>6} → {result:5s}  {mark}")
+
+    if all_ok:
+        print(f"\n[OK] 全部 {len(cases)} 个用例通过，与 Space-Track 官方示例一致")
+    return all_ok
+
+
+def test_alpha5_tle_synthesis():
+    """测试 7: Alpha-5 TLE 合成与传播"""
+    print("\n" + "=" * 60)
+    print("测试 7: Alpha-5 TLE 合成与传播")
+    print("=" * 60)
+
+    # 模拟 NORAD 148493 (Alpha-5: E8493) 的 _raw_elements
+    gp = {
+        "NORAD_CAT_ID": 148493,
+        "OBJECT_ID": "2026-085A",
+        "OBJECT_NAME": "STARLINK-12345",
+        "EPOCH": "2026-07-15T18:23:37.536288",
+        "CLASSIFICATION_TYPE": "U",
+        "ELEMENT_SET_NO": 999,
+        "EPHEMERIS_TYPE": 0,
+        "INCLINATION": 53.0544,
+        "RA_OF_ASC_NODE": 123.4567,
+        "ECCENTRICITY": 0.0012345,
+        "ARG_OF_PERICENTER": 45.6789,
+        "MEAN_ANOMALY": 314.1592,
+        "MEAN_MOTION": 15.48428153,
+        "MEAN_MOTION_DOT": 0.00012931,
+        "MEAN_MOTION_DDOT": 0.0,
+        "BSTAR": 0.000082095,
+        "REV_AT_EPOCH": 57742,
+    }
+
+    tle1, tle2 = gp_json_to_tle_lines(gp)
+
+    # 编目号应显示 Alpha-5 编码 E8493
+    if "E8493" not in tle1 or "E8493" not in tle2:
+        print(f"[FAIL] TLE 编目号未正确编码为 Alpha-5")
+        print(f"  TLE1: {tle1}")
+        print(f"  TLE2: {tle2}")
+        return False
+
+    print(f"  TLE 合成成功:")
+    print(f"  TLE1: {tle1}")
+    print(f"  TLE2: {tle2}")
+    print(f"  编目号 E8493 (NORAD 148493) 正确出现在两行中")
+
+    # 传播测试：Alpha-5 TLE 会被 _spoof_catalog_id 替换为伪 ID
+    target_time = datetime.now(timezone.utc)
+    sv = propagate_tle(148493, "STARLINK-12345", tle1, tle2, target_time)
+
+    if sv:
+        altitude = (sv.x**2 + sv.y**2 + sv.z**2)**0.5 - 6378.137
+        print(f"\n  传播成功（Alpha-5 被 spoof 替换后仍正常工作）:")
+        print(f"  位置 (km):     X={sv.x:10.3f}, Y={sv.y:10.3f}, Z={sv.z:10.3f}")
+        print(f"  轨道高度:      {altitude:.1f} km")
+        print(f"\n[OK] Alpha-5 TLE 合成 + 传播全部正常")
+        return True
+    else:
+        print(f"\n[FAIL] Alpha-5 TLE 传播失败")
+        return False
+
+
 def main():
     """运行所有测试"""
     print("\n" + "xpropagator 集成测试套件".center(50) + "\n")
-    
+
     tests = [
         ("服务连接", test_service_connection),
         ("单次预报", test_single_propagation),
         ("残差分析(机动)", test_maneuver_detection),
         ("残差分析(修正)", test_correction_detection),
         ("无TLE合成分析", test_no_tle_synthesis),
+        ("Alpha-5 编码", test_alpha5_encoding),
+        ("Alpha-5 TLE合成", test_alpha5_tle_synthesis),
     ]
     
     results = []
