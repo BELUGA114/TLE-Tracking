@@ -38,7 +38,7 @@ TELEGRAM_CHAT_ID=your_chat_id          # Required for new object discovery
 > **How to get Telegram credentials:**
 > - `TELEGRAM_BOT_TOKEN` — Message [@BotFather](https://t.me/BotFather) on Telegram, `/newbot`, follow the prompts
 > - `TELEGRAM_CHAT_ID` — Message [@UserIDxBot](https://t.me/UserIDxBot) to get your numeric ID, or send `/id` to your bot and check `https://api.telegram.org/bot{TOKEN}/getUpdates`
-```
+
 
 Edit `config.yaml`:
 

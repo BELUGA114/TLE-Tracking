@@ -25,6 +25,7 @@ COPY telegram_notifier.py .
 COPY new_object_watcher.py .
 COPY telegram_bot.py .
 COPY xpropagator_client.py .
+COPY common/ common/
 COPY api/ api/
 
 # 复制后端 Web 服务
