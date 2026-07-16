@@ -48,12 +48,8 @@ try:
 except ImportError:
     _DISCOVERY_MODULE_OK = False
 
-# 初始化日志系统（必须在配置加载之前）
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
+from common.logging_config import setup_logging
+setup_logging("monitor")
 
 load_dotenv()
 
@@ -184,9 +180,6 @@ BULK_TLE_URL = (
     "/CREATION_DATE/%3Enow-0.042"
     "/format/json"
 )
-
-# 确保 xpropagator_client 模块的 logger 也能输出 INFO 级别日志
-logging.getLogger("xpropagator_client").setLevel(logging.INFO)
 
 log = logging.getLogger(__name__)
 
