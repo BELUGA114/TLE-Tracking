@@ -33,11 +33,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 log = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [Bot] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
+from common.logging_config import setup_logging
+setup_logging("bot")
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")

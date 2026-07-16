@@ -26,11 +26,8 @@ from fastapi.staticfiles import StaticFiles
 from backend.routers import config, decay, history, satellites, discovery
 from backend.services.ws_manager import manager, file_watcher, send_initial
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
+from common.logging_config import setup_logging
+setup_logging("backend")
 
 
 @asynccontextmanager
