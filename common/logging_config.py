@@ -73,11 +73,11 @@ def setup_logging(module_tag: str = "") -> None:
     level_name = os.getenv("LOG_LEVEL", "INFO")
     level = _parse_level(level_name)
 
-    # 格式: 2026-07-16 14:30:05 [monitor] 消息内容
+    # 格式: 2026-07-16 14:30:05 [INFO] [monitor] 消息内容
     tag_part = f"[{module_tag}] " if module_tag else ""
     logging.basicConfig(
         level=level,
-        format=f"%(asctime)s {tag_part}%(message)s",
+        format=f"%(asctime)s [%(levelname)s] {tag_part}%(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
