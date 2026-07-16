@@ -50,13 +50,11 @@ data_source:
   fallback: "spacetrack"
 
 new_object_discovery:
-  enabled: true              # 开启新对象发现
-  watched_launches:          # 关注列表（可选）
+  enabled: true              # 推送全部新编目 PAYLOAD
+  watched_launches:          # 始终生效（不受 enabled 控制），前缀匹配
     - intldes_prefix: "2026-085"
       label: "星链 G12-3"
 ```
-
-标记 `# web:` 的字段可在仪表盘设置页在线修改，热重载生效。
 
 ### 3. 运行
 
@@ -91,7 +89,7 @@ cd frontend && pnpm install && pnpm dev                        # 前端 (:5173)
 
 ## 新对象发现 & Telegram Bot
 
-每天 UTC 17:10（SATCAT 日更后）查询 Space-Track 过去 24h 新编目的 PAYLOAD 对象，推送到 Telegram。
+`enabled: true` 时推送全部新编目 PAYLOAD。`watched_launches` 独立运行——前缀命中始终推送，不受总开关和 `enabled` 状态影响
 
 ```
 Space-Track SATCAT → new_object_watcher.py → Telegram 通知
