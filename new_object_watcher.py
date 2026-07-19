@@ -220,6 +220,7 @@ class NewObjectWatcher:
             return None
 
         log.debug("satcat_debut 返回 %d 条记录", len(data))
+        log.debug("satcat_debut 原始响应: %s", json.dumps(data, ensure_ascii=False))
         return data
 
     # 按 DEBUT 时间戳去重（游标之前的不推送），按 watched_launches 列表分拣
