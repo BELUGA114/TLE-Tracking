@@ -30,6 +30,7 @@ class TelegramNotifier:
         self._token = token.strip() if token else ""
         self._chat_id = chat_id.strip() if chat_id else ""
         self._active = bool(self._token and self._chat_id)
+        self._session = requests.Session()
         if not self._active:
             log.warning(
                 "Telegram 通知未配置：缺少 TELEGRAM_BOT_TOKEN 或 TELEGRAM_CHAT_ID，"
@@ -65,7 +66,7 @@ class TelegramNotifier:
 
         for attempt in range(1, 4):
             try:
-                resp = requests.post(url, json=payload, timeout=15)
+                resp = self._session.post(url, json=payload, timeout=15)
             except requests.RequestException as e:
                 wait = 2 ** (attempt - 1)
                 log.warning(

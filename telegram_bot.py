@@ -43,6 +43,9 @@ API_KEY = os.getenv("DASHBOARD_API_KEY", "")
 
 TELEGRAM_API = f"https://api.telegram.org/bot{TOKEN}"
 
+# 复用 TCP 连接
+_session = requests.Session()
+
 # 只响应指定 chat_id 的消息，防止未授权访问
 _ALLOWED_CHAT_ID = int(CHAT_ID) if CHAT_ID.lstrip("-").isdigit() else 0
 
@@ -59,7 +62,7 @@ def _api_headers() -> dict[str, str]:
 
 def _get_config() -> Optional[dict]:
     try:
-        resp = requests.get(f"{API_BASE}/api/config", headers=_api_headers(), timeout=10)
+        resp = _session.get(f"{API_BASE}/api/config", headers=_api_headers(), timeout=10)
         if resp.status_code == 200:
             return resp.json()
         log.warning("GET /api/config 返回 %d: %s", resp.status_code, resp.text[:200])
@@ -71,7 +74,7 @@ def _get_config() -> Optional[dict]:
 
 def _put_config(updates: dict) -> bool:
     try:
-        resp = requests.put(
+        resp = _session.put(
             f"{API_BASE}/api/config", headers=_api_headers(), json=updates, timeout=10
         )
         if resp.status_code == 200:
@@ -86,7 +89,7 @@ def _put_config(updates: dict) -> bool:
 def _toggle_discovery() -> Optional[bool]:
     """原子翻转 enabled，返回新值。避免读-改-写竞态。"""
     try:
-        resp = requests.post(
+        resp = _session.post(
             f"{API_BASE}/api/config/toggle-discovery",
             headers=_api_headers(),
             timeout=10,
@@ -102,7 +105,7 @@ def _toggle_discovery() -> Optional[bool]:
 
 def _get_status() -> Optional[dict]:
     try:
-        resp = requests.get(
+        resp = _session.get(
             f"{API_BASE}/api/discovery/status", headers=_api_headers(), timeout=10
         )
         if resp.status_code == 200:
@@ -125,7 +128,7 @@ def _setup_commands() -> None:
         {"command": "help", "description": "显示帮助"},
     ]
     try:
-        resp = requests.post(
+        resp = _session.post(
             f"{TELEGRAM_API}/setMyCommands",
             json={"commands": commands},
             timeout=10,
@@ -149,11 +152,11 @@ def _send_message(text: str, reply_markup: Optional[dict] = None) -> bool:
         payload["reply_markup"] = reply_markup
 
     try:
-        resp = requests.post(f"{TELEGRAM_API}/sendMessage", json=payload, timeout=15)
+        resp = _session.post(f"{TELEGRAM_API}/sendMessage", json=payload, timeout=15)
         if resp.status_code == 429:
             retry_after = int(resp.headers.get("Retry-After", "5"))
             time.sleep(retry_after)
-            resp = requests.post(f"{TELEGRAM_API}/sendMessage", json=payload, timeout=15)
+            resp = _session.post(f"{TELEGRAM_API}/sendMessage", json=payload, timeout=15)
         return resp.status_code == 200
     except requests.RequestException as e:
         log.warning("sendMessage 失败: %s", e)
@@ -174,7 +177,7 @@ def _edit_message_text(
         payload["reply_markup"] = reply_markup
 
     try:
-        resp = requests.post(f"{TELEGRAM_API}/editMessageText", json=payload, timeout=15)
+        resp = _session.post(f"{TELEGRAM_API}/editMessageText", json=payload, timeout=15)
         return resp.status_code == 200
     except requests.RequestException as e:
         log.warning("editMessageText 失败: %s", e)
@@ -183,7 +186,7 @@ def _edit_message_text(
 
 def _answer_callback(callback_query_id: str, text: str = "") -> None:
     try:
-        requests.post(
+        _session.post(
             f"{TELEGRAM_API}/answerCallbackQuery",
             json={"callback_query_id": callback_query_id, "text": text},
             timeout=10,
@@ -673,7 +676,7 @@ def main() -> None:
 def _run_loop(offset: int, consecutive_errors: int) -> None:
     while True:
         try:
-            resp = requests.get(
+            resp = _session.get(
                 f"{TELEGRAM_API}/getUpdates",
                 params={"offset": offset, "timeout": 30},
                 timeout=35,
