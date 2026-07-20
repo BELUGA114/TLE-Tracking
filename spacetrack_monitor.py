@@ -165,8 +165,8 @@ LOGIN_URL = f"{BASE_URL}/ajaxauth/login"
 LOGOUT_URL = f"{BASE_URL}/ajaxauth/logout"
 
 # User-Agent（可选，用于标识应用身份）
-# 如果用户在 config.yaml 中配置了 user_agent，则使用该值；否则不设置 UA
-SPACE_TRACK_USER_AGENT: Optional[str] = _cfg.get("user_agent") or None
+# User-Agent 优先级：环境变量 USER_AGENT > config.yaml user_agent > 不设置
+SPACE_TRACK_USER_AGENT: Optional[str] = os.getenv("USER_AGENT") or _cfg.get("user_agent") or None
 
 # 批量查询 URL：获取最近 1 小时内发布的所有 TLE
 # 这是 Space-Track 官方推荐的查询方式，符合 API 使用规范
