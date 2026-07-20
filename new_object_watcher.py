@@ -216,7 +216,7 @@ class NewObjectWatcher:
         try:
             data = result.json()
         except ValueError as e:
-            log.warning("satcat_debut JSON 解析失败: %s", e)
+            log.warning("satcat_debut JSON 解析失败: %s (body前200字: %s)", e, result.text[:200])
             return None
 
         log.debug("satcat_debut 返回 %d 条记录", len(data))
