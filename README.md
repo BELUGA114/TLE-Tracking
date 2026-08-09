@@ -14,17 +14,11 @@
 - **Telegram Bot** — 双向交互：开关切换、关注列表管理（命令 + 行内按键）
 - **Web 仪表盘** — Vue 3 实时展示轨道数据、趋势图表、衰降状态
 - **衰降分析** — 四级衰减判定，自动分级告警
-- **Docker 部署** — 多架构镜像，一键 `docker compose up -d`
+- **Docker 部署** — 支持本地构建或拉取多架构预构建镜像
 
 ## 快速开始
 
-### 1. 安装依赖
-
-```bash
-pip install requests python-dotenv pyyaml fastapi uvicorn
-```
-
-### 2. 配置
+### 1. 配置（本地与 Docker 通用）
 
 复制 `.env.example` 为 `.env`，填写凭据（CelesTrak 主源时 Space-Track 可选）：
 
@@ -56,20 +50,53 @@ new_object_discovery:
       label: 星链 G12-3
 ```
 
-### 3. 运行
+### 2. 本地部署
+
+要求：Python 3.11+、Node.js 22+，以及 pnpm（可通过 Corepack 启用）。
+
+安装后端和前端依赖并构建前端：
 
 ```bash
-python spacetrack_monitor.py    # 监控 + 内建 Web 服务
-python telegram_bot.py          # Telegram Bot（独立进程）
+python -m venv .venv
+# Windows PowerShell: .venv\Scripts\Activate.ps1
+# Linux/macOS: source .venv/bin/activate
+python -m pip install -r requirements.txt
+
+corepack enable
+cd frontend
+pnpm install
+pnpm build
+cd ..
 ```
 
-### 4. Docker
+分别在三个终端启动监控器、仪表盘和 Telegram Bot：
 
 ```bash
-docker compose up -d            # 监控 + 仪表盘 + Bot 一键启动
+python spacetrack_monitor.py
+python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
+python telegram_bot.py          # 可选：仅配置 Telegram 凭据时启动
 ```
 
-访问 `http://localhost:8000`。Bot 凭据配置后自动启动。预构建镜像：`ghcr.io/beluga114/tle-tracking:latest`。
+访问 `http://localhost:8000`。
+
+### 3. Docker 部署
+
+要求：Docker Engine 与 Docker Compose v2。两种方式共用当前目录的 `.env`、`config.yaml` 和 `./data` 数据卷。
+
+#### 方式 A：本地构建镜像
+
+```bash
+docker compose up -d --build
+```
+
+#### 方式 B：拉取预构建镜像
+
+```bash
+docker compose pull
+docker compose up -d --no-build
+```
+
+预构建镜像为 `ghcr.io/beluga114/tle-tracking:latest`。容器会启动监控器和仪表盘；配置了 Telegram 凭据时，也会自动启动 Bot。访问 `http://localhost:8000`。
 
 **代理（可选）：** 如果外部服务（Telegram、Space-Track）需要走代理，在 `.env` 中添加：
 
@@ -80,7 +107,7 @@ HTTPS_PROXY=http://host:port
 
 容器通过 `docker-compose.yml` 继承这些变量。已预设 `NO_PROXY=localhost,127.0.0.1,::1`——内部 API 调用（Bot → 仪表盘 localhost:8000）不走代理，不需要代理时留空或不设置即可
 
-### 5. 本地开发
+### 4. 前端开发（可选）
 
 ```bash
 uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000   # 后端

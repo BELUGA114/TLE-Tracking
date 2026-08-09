@@ -2,8 +2,8 @@ services:
   tle-tracking:
     # 本地构建（开发/调试）
     build: .
-    # 远程拉取（生产环境，标签随版本更新）
-    # image: ghcr.io/beluga114/tle-tracking:latest
+    # 本地构建和远程拉取共用同一标签；使用 --build 构建，使用 --no-build 运行已拉取镜像
+    image: ghcr.io/beluga114/tle-tracking:latest
     container_name: tle-tracking
     restart: unless-stopped
     network_mode: "host"
