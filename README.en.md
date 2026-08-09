@@ -14,17 +14,11 @@ A lightweight orbital monitoring system with dual data sources, Web Dashboard, a
 - **Telegram Bot** — Bidirectional control: toggle switch, manage watch list (commands + inline keyboard)
 - **Web Dashboard** — Vue 3 real-time orbital data, trend charts, decay status
 - **Decay Analysis** — Four-tier decay detection with alert levels
-- **Docker** — Multi-arch image, `docker compose up -d`
+- **Docker** — Build locally or pull the multi-arch pre-built image
 
 ## Quick Start
 
-### 1. Install
-
-```bash
-pip install requests python-dotenv pyyaml fastapi uvicorn
-```
-
-### 2. Configure
+### 1. Configure (shared by local and Docker deployments)
 
 Copy `.env.example` to `.env` and fill in credentials (Space-Track optional if using CelesTrak as primary):
 
@@ -57,20 +51,53 @@ new_object_discovery:
       label: Starlink G12-3
 ```
 
-### 3. Run
+### 2. Local Deployment
+
+Requirements: Python 3.11+, Node.js 22+, and pnpm (available through Corepack).
+
+Install the backend and frontend dependencies, then build the frontend:
 
 ```bash
-python spacetrack_monitor.py    # Monitor + built-in web server
-python telegram_bot.py          # Telegram Bot (separate process)
+python -m venv .venv
+# Windows PowerShell: .venv\Scripts\Activate.ps1
+# Linux/macOS: source .venv/bin/activate
+python -m pip install -r requirements.txt
+
+corepack enable
+cd frontend
+pnpm install
+pnpm build
+cd ..
 ```
 
-### 4. Docker
+Start the monitor, dashboard, and Telegram bot in separate terminals:
 
 ```bash
-docker compose up -d            # Monitor + Dashboard + Bot
+python spacetrack_monitor.py
+python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
+python telegram_bot.py          # Optional: start only when Telegram credentials are configured
 ```
 
-Visit `http://localhost:8000`. Bot auto-starts when Telegram credentials are configured. Pre-built image: `ghcr.io/beluga114/tle-tracking:latest`.
+Visit `http://localhost:8000`.
+
+### 3. Docker Deployment
+
+Requirements: Docker Engine and Docker Compose v2. Both options use the `.env`, `config.yaml`, and `./data` volume in the current directory.
+
+#### Option A: Build Locally
+
+```bash
+docker compose up -d --build
+```
+
+#### Option B: Pull the Pre-built Image
+
+```bash
+docker compose pull
+docker compose up -d --no-build
+```
+
+The pre-built image is `ghcr.io/beluga114/tle-tracking:latest`. The container starts the monitor and dashboard, and it also starts the bot when Telegram credentials are configured. Visit `http://localhost:8000`.
 
 **Proxy (optional):** Add to `.env` if external services (Telegram, Space-Track) need a proxy:
 
@@ -81,7 +108,7 @@ HTTPS_PROXY=http://host:port
 
 The container inherits these via `docker-compose.yml`. `NO_PROXY=localhost,127.0.0.1,::1` is preset — internal API calls (bot → dashboard on localhost:8000) bypass the proxy, Leave unset or empty if no proxy is required.
 
-### 5. Local Dev
+### 4. Frontend Development (optional)
 
 ```bash
 uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000   # Backend
