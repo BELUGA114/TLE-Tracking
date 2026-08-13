@@ -27,11 +27,16 @@ SPACETRACK_USER=your_email@example.com
 SPACETRACK_PASS=your_password
 TELEGRAM_BOT_TOKEN=your_bot_token      # Required for new object discovery
 TELEGRAM_CHAT_ID=your_chat_id          # Required for new object discovery
+DASHBOARD_API_KEY=long_random_value    # Required for configuration writes in production
 ```
 
 > **How to get Telegram credentials:**
 > - `TELEGRAM_BOT_TOKEN` — Message [@BotFather](https://t.me/BotFather) on Telegram, `/newbot`, follow the prompts
 > - `TELEGRAM_CHAT_ID` — Send `/id` to [@UserIDxBot](https://t.me/UserIDxBot) to view your digital ID, or send a message to your bot and check `https://api.telegram.org/bot{TOKEN}/getUpdates`
+
+The backend and Telegram Bot read the same `DASHBOARD_API_KEY` from their runtime environment. On first use, enter that value in the Web settings page's write-authentication section and store it in the current browser. The Bot normally needs no extra setup; after a rotation or for temporary recovery, send `/setapikey <key>` from the authorized `TELEGRAM_CHAT_ID`. This override remains in Bot memory only and resets to the environment value after restart.
+
+`CESIUM_ION_TOKEN` is used directly by the browser to access Cesium Ion and is therefore visible in developer tools. Restrict the token to the deployed origins and required assets in the Cesium Ion console. When it is unset, the frontend falls back to OpenStreetMap.
 
 
 Edit `config.yaml`:

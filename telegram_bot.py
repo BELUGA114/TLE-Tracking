@@ -39,7 +39,7 @@ setup_logging("bot")
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 API_BASE = "http://localhost:8000"
-API_KEY = os.getenv("DASHBOARD_API_KEY", "")
+_runtime_api_key = os.getenv("DASHBOARD_API_KEY", "")
 
 TELEGRAM_API = f"https://api.telegram.org/bot{TOKEN}"
 
@@ -55,9 +55,18 @@ _FORCE_REPLY_PROMPT = "请回复本消息，格式：国际编号前缀 备注"
 
 def _api_headers() -> dict[str, str]:
     headers = {"Content-Type": "application/json"}
-    if API_KEY:
-        headers["Authorization"] = f"Bearer {API_KEY}"
+    if _runtime_api_key:
+        headers["Authorization"] = f"Bearer {_runtime_api_key}"
     return headers
+
+
+def _set_api_key(value: str) -> bool:
+    global _runtime_api_key
+    normalized = value.strip()
+    if not normalized:
+        return False
+    _runtime_api_key = normalized
+    return True
 
 
 def _get_config() -> Optional[dict]:
@@ -125,6 +134,7 @@ def _setup_commands() -> None:
         {"command": "watchlist", "description": "关注列表面板"},
         {"command": "addwatch", "description": "添加关注前缀"},
         {"command": "rmwatch", "description": "移除关注前缀"},
+        {"command": "setapikey", "description": "临时设置仪表盘 API 密钥"},
         {"command": "help", "description": "显示帮助"},
     ]
     try:
@@ -160,6 +170,19 @@ def _send_message(text: str, reply_markup: Optional[dict] = None) -> bool:
         return resp.status_code == 200
     except requests.RequestException as e:
         log.warning("sendMessage 失败: %s", e)
+        return False
+
+
+def _delete_message(chat_id: int, message_id: int) -> bool:
+    try:
+        resp = _session.post(
+            f"{TELEGRAM_API}/deleteMessage",
+            json={"chat_id": chat_id, "message_id": message_id},
+            timeout=10,
+        )
+        return resp.status_code == 200
+    except requests.RequestException as e:
+        log.warning("deleteMessage 失败: %s", e)
         return False
 
 
@@ -272,6 +295,7 @@ def _build_help_text() -> str:
         "/watchlist - 关注列表\n"
         "/addwatch <code>前缀</code> <code>备注</code> - 添加关注\n"
         "/rmwatch <code>前缀</code> - 移除关注\n"
+        "/setapikey <code>密钥</code> - 临时设置仪表盘 API 密钥\n"
         "/help - 显示此帮助\n"
         "\n"
         "<i>主菜单按钮也可完成大部分操作。</i>"
@@ -322,6 +346,26 @@ def _cmd_start(msg: dict) -> None:
         "<i>输入 /help 查看所有命令。</i>"
     )
     _cmd_status(msg)
+
+
+def _cmd_set_api_key(msg: dict) -> None:
+    text = msg.get("text", "")
+    _, separator, value = text.partition(" ")
+    if not separator or not value.strip():
+        _send_message("用法: /setapikey <code>密钥</code>")
+        return
+
+    chat_id = msg.get("chat", {}).get("id")
+    message_id = msg.get("message_id")
+    message_deleted = False
+    if isinstance(chat_id, int) and isinstance(message_id, int):
+        message_deleted = _delete_message(chat_id, message_id)
+
+    _set_api_key(value)
+    response = "仪表盘 API 密钥已在当前 Bot 进程中更新。"
+    if not message_deleted:
+        response += " Telegram 未能删除原命令，请手动删除含密钥的消息。"
+    _send_message(response)
 
 
 def _cmd_status(msg: dict) -> None:
@@ -626,6 +670,8 @@ def _handle_message(msg: dict) -> None:
         _cmd_addwatch(msg)
     elif text.startswith("/rmwatch"):
         _cmd_rmwatch(msg)
+    elif text.startswith("/setapikey"):
+        _cmd_set_api_key(msg)
     elif text.startswith("/help"):
         _cmd_help(msg)
     else:

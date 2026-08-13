@@ -23,6 +23,8 @@ services:
       - HTTP_PROXY=${HTTP_PROXY:-}
       - HTTPS_PROXY=${HTTPS_PROXY:-}
       - NO_PROXY=localhost,127.0.0.1,::1
+      # 仪表盘配置写入认证（后端与容器内 Telegram Bot 共用）
+      - DASHBOARD_API_KEY=${DASHBOARD_API_KEY:-}
       # Cesium Ion token（可选，不设则使用 OSM 免费瓦片）
       - CESIUM_ION_TOKEN=${CESIUM_ION_TOKEN:-}
       # Space-Track 凭据（需要用到 spacetrack 数据源时必填）
