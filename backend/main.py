@@ -22,8 +22,12 @@ from pathlib import Path
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from backend.routers import config, decay, history, satellites, discovery
+from backend.security import inject_cesium_token
 from backend.services.ws_manager import manager, file_watcher, send_initial
 
 from common.logging_config import setup_logging
@@ -83,10 +87,7 @@ if _frontend_dist.is_dir():
     _index_path = _frontend_dist / "index.html"
     _raw_index_html = _index_path.read_text(encoding="utf-8")
     _cesium_token = os.environ.get("CESIUM_ION_TOKEN", "")
-    _index_html = _raw_index_html.replace(
-        'window.CESIUM_ION_TOKEN=""',
-        f'window.CESIUM_ION_TOKEN="{_cesium_token}"',
-    )
+    _index_html = inject_cesium_token(_raw_index_html, _cesium_token)
 
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):

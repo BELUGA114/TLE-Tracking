@@ -142,6 +142,26 @@
         </div>
       </fieldset>
 
+      <fieldset>
+        <legend>写入认证</legend>
+        <label>
+          <span>Dashboard API Key</span>
+          <span class="hint">仅保存在当前浏览器，用于授权配置写入。</span>
+        </label>
+        <div class="credential-row">
+          <input
+            v-model="dashboardApiKey"
+            type="password"
+            autocomplete="off"
+            class="input"
+            placeholder="输入服务端 DASHBOARD_API_KEY"
+          />
+          <button type="button" class="btn-secondary" @click="storeApiKey">保存密钥</button>
+          <button type="button" class="btn-secondary" @click="removeApiKey">清除</button>
+        </div>
+        <span v-if="credentialMessage" class="saved-msg">{{ credentialMessage }}</span>
+      </fieldset>
+
       <div class="actions">
         <button type="submit" class="btn-primary" :disabled="saving">
           {{ saving ? "保存中..." : "保存配置" }}
@@ -155,6 +175,12 @@
 
 <script setup lang="ts">
 import { reactive, ref, onMounted } from "vue"
+import {
+  clearDashboardApiKey,
+  dashboardAuthHeaders,
+  loadDashboardApiKey,
+  saveDashboardApiKey,
+} from "../services/dashboardAuth"
 
 interface ConfigForm {
   norad_ids_str: string
@@ -174,6 +200,8 @@ const loading = ref(true)
 const saving = ref(false)
 const saved = ref(false)
 const error = ref("")
+const dashboardApiKey = ref(loadDashboardApiKey())
+const credentialMessage = ref("")
 
 const form = reactive<ConfigForm>({
   norad_ids_str: "",
@@ -280,11 +308,23 @@ async function save() {
   try {
     const resp = await fetch("/api/config", {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...dashboardAuthHeaders(),
+      },
       body: JSON.stringify(payload),
     })
     if (!resp.ok) {
       const body = await resp.json()
+      if (resp.status === 401) {
+        throw new Error("Dashboard API Key 缺失或无效")
+      }
+      if (resp.status === 503) {
+        throw new Error("服务端未配置 DASHBOARD_API_KEY，配置写入已禁用")
+      }
+      if (resp.status === 429) {
+        throw new Error("配置写入请求过于频繁，请稍后重试")
+      }
       throw new Error(body.detail || `HTTP ${resp.status}`)
     }
     saved.value = true
@@ -294,6 +334,18 @@ async function save() {
   } finally {
     saving.value = false
   }
+}
+
+function storeApiKey() {
+  saveDashboardApiKey(dashboardApiKey.value)
+  dashboardApiKey.value = loadDashboardApiKey()
+  credentialMessage.value = dashboardApiKey.value ? "API Key 已保存到当前浏览器" : "API Key 已清除"
+}
+
+function removeApiKey() {
+  clearDashboardApiKey()
+  dashboardApiKey.value = ""
+  credentialMessage.value = "API Key 已清除"
 }
 
 onMounted(loadConfig)
@@ -395,6 +447,37 @@ input[type="checkbox"]:checked::after {
 }
 .input-sm {
   max-width: 160px;
+}
+.credential-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: var(--space-sm);
+  align-items: center;
+}
+.btn-secondary {
+  min-height: 36px;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-void);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+.btn-secondary:hover,
+.btn-secondary:focus-visible {
+  border-color: var(--color-signal-gold);
+  color: var(--color-text-primary);
+  outline: none;
+}
+@media (max-width: 640px) {
+  .credential-row {
+    grid-template-columns: 1fr 1fr;
+  }
+  .credential-row .input {
+    grid-column: 1 / -1;
+  }
 }
 
 /* 只读区 */

@@ -7,23 +7,14 @@ import os
 
 import yaml
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
+from backend.security import enforce_config_write_rate_limit, require_dashboard_auth
 
 router = APIRouter(prefix="/api/config", tags=["config"])
-security = HTTPBearer(auto_error=False)
-
-# 可选 API 密钥：设置 DASHBOARD_API_KEY 环境变量即可启用认证
-_DASHBOARD_API_KEY = os.environ.get("DASHBOARD_API_KEY", "")
 
 # 防止前端和 Telegram Bot 并发 read-modify-write 导致互相覆盖
 _config_lock = asyncio.Lock()
 
-
-def _require_auth(credentials: HTTPAuthorizationCredentials | None = Depends(security)):
-    if not _DASHBOARD_API_KEY:
-        return  # 未配置密钥时允许所有请求
-    if credentials is None or credentials.credentials != _DASHBOARD_API_KEY:
-        raise HTTPException(401, "未授权：需要有效的 API 密钥")
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "config.yaml")
 CONFIG_PATH = os.path.abspath(CONFIG_PATH)
@@ -140,7 +131,11 @@ async def get_config():
 
 
 @router.put("")
-async def update_config(updates: dict, _auth=Depends(_require_auth)):
+async def update_config(
+    updates: dict,
+    _rate_limit: None = Depends(enforce_config_write_rate_limit),
+    _auth: None = Depends(require_dashboard_auth),
+):
     """更新允许的配置字段，合并写入 config.yaml"""
     if not updates:
         raise HTTPException(400, "请求体为空")
@@ -166,7 +161,10 @@ async def update_config(updates: dict, _auth=Depends(_require_auth)):
 
 
 @router.post("/toggle-discovery")
-async def toggle_discovery(_auth=Depends(_require_auth)):
+async def toggle_discovery(
+    _rate_limit: None = Depends(enforce_config_write_rate_limit),
+    _auth: None = Depends(require_dashboard_auth),
+):
     """原子翻转 new_object_discovery.enabled，返回新值。
 
     独立端点而非让客户端读-改-写 PUT，防止 bot 和前端并发 toggle 时

@@ -27,11 +27,16 @@ SPACETRACK_USER=your_email@example.com
 SPACETRACK_PASS=your_password
 TELEGRAM_BOT_TOKEN=your_bot_token      # 新对象发现需要
 TELEGRAM_CHAT_ID=your_chat_id          # 新对象发现需要
+DASHBOARD_API_KEY=long_random_value    # 配置写入认证，生产环境必须设置
 ```
 
 > **如何获取 Telegram 凭据：**
 > - `TELEGRAM_BOT_TOKEN` — 向 Telegram 上的 [@BotFather](https://t.me/BotFather) 发送 `/newbot`，按提示创建机器人即可获得
 > - `TELEGRAM_CHAT_ID` — 向 [@UserIDxBot](https://t.me/UserIDxBot) 发送 `/id` 即可看到你的数字 ID，或给创建好的 Bot 发条消息后访问 `https://api.telegram.org/bot{TOKEN}/getUpdates` 查看
+
+后端与 Telegram Bot 从同一运行环境读取 `DASHBOARD_API_KEY`。Web 设置页首次使用时，在“写入认证”区域输入同一个值并保存到当前浏览器。Bot 通常无需额外操作；密钥轮换或临时恢复时，可从已授权的 `TELEGRAM_CHAT_ID` 发送 `/setapikey <密钥>`，该值仅在当前 Bot 进程内有效，重启后恢复读取环境变量。
+
+`CESIUM_ION_TOKEN` 会由浏览器直接用于访问 Cesium Ion，因此可以在开发者工具中看到。请在 Cesium Ion 控制台将 token 限制到实际部署域名和必需资产；不配置时前端自动回退到 OpenStreetMap。
 
 编辑 `config.yaml`：
 
