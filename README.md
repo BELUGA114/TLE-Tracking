@@ -34,7 +34,17 @@ DASHBOARD_API_KEY=long_random_value    # 配置写入认证，生产环境必须
 > - `TELEGRAM_BOT_TOKEN` — 向 Telegram 上的 [@BotFather](https://t.me/BotFather) 发送 `/newbot`，按提示创建机器人即可获得
 > - `TELEGRAM_CHAT_ID` — 向 [@UserIDxBot](https://t.me/UserIDxBot) 发送 `/id` 即可看到你的数字 ID，或给创建好的 Bot 发条消息后访问 `https://api.telegram.org/bot{TOKEN}/getUpdates` 查看
 
-后端与 Telegram Bot 从同一运行环境读取 `DASHBOARD_API_KEY`。Web 设置页首次使用时，在“写入认证”区域输入同一个值并保存到当前浏览器。Bot 通常无需额外操作；密钥轮换或临时恢复时，可从已授权的 `TELEGRAM_CHAT_ID` 发送 `/setapikey <密钥>`，该值仅在当前 Bot 进程内有效，重启后恢复读取环境变量。
+`DASHBOARD_API_KEY` 应使用随机字符串。以下任一命令均可在 Windows、macOS 与 Linux 使用，任选其一运行后将输出写入 `.env`：
+
+```bash
+# Node.js 16+
+node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
+
+# Python 3.6+
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+后端与 Telegram Bot 从同一运行环境读取 `DASHBOARD_API_KEY`，修改 `.env` 后需重启服务。Web 设置页首次使用时，在“写入认证”区域输入同一个值并保存到当前浏览器。Bot 通常无需额外操作；密钥轮换或临时恢复时，可从已授权的 `TELEGRAM_CHAT_ID` 发送 `/setapikey <密钥>`，该值仅在当前 Bot 进程内有效，重启后恢复读取环境变量。
 
 `CESIUM_ION_TOKEN` 会由浏览器直接用于访问 Cesium Ion，因此可以在开发者工具中看到。请在 Cesium Ion 控制台将 token 限制到实际部署域名和必需资产；不配置时前端自动回退到 OpenStreetMap。
 
