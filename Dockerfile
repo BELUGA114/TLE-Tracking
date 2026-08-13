@@ -1,5 +1,7 @@
 # Stage 1: 构建 Vue 3 前端
-FROM node:22-alpine AS frontend-builder
+# 前端产物与 CPU 架构无关，固定在 BuildKit 原生构建平台执行，避免
+# linux/arm64 多架构发布时通过 QEMU 运行 Node/Vite 导致非法指令退出。
+FROM --platform=$BUILDPLATFORM node:22-alpine AS frontend-builder
 
 WORKDIR /build
 COPY frontend/ .
