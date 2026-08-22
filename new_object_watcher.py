@@ -48,6 +48,11 @@ class NewObjectWatcher:
 
     每次 .check() 查询 satcat_debut 过去 ~24h 数据，
     通过游标去重后，按过滤规则通过 TelegramNotifier 推送。
+
+    推送规则：
+    - enabled=True：推送全部新编目 PAYLOAD
+    - enabled=False 且有关注列表：仅推送命中关注列表的对象（watchlist-only）
+    - enabled=False 且无关注列表：不执行检查
     """
 
     def __init__(self, config: dict, data_dir: str) -> None:
@@ -92,6 +97,13 @@ class NewObjectWatcher:
         if self._enabled:
             log.info(
                 "新对象发现已启用  调度: %02d:%02d UTC  关注列表: %d 个前缀",
+                self._schedule_hour,
+                self._schedule_minute,
+                len(self._watched),
+            )
+        elif self._watched:
+            log.info(
+                "新对象发现仅关注模式  调度: %02d:%02d UTC  关注列表: %d 个前缀",
                 self._schedule_hour,
                 self._schedule_minute,
                 len(self._watched),
@@ -173,11 +185,12 @@ class NewObjectWatcher:
         """今天是否已到检查时间且尚未检查过。
 
         判断逻辑：
-        1. 未启用 → 永远 False
+        1. 未启用且无关注列表 → 永远 False
         2. 当前 UTC 时间已过今天的 schedule 时刻
         3. 且今天的日期 != 上次检查日期
         """
-        if not self._enabled:
+        # 总开关关闭时，仅在有关注列表的情况下继续（watchlist-only 模式）
+        if not self._enabled and not self._watched:
             return False
 
         now = _utc_now()
@@ -304,7 +317,7 @@ class NewObjectWatcher:
         Returns:
             推送的消息数量（0 表示无新对象或全部失败）
         """
-        if not self._enabled:
+        if not self._enabled and not self._watched:
             return 0
 
         now = _utc_now()
@@ -347,7 +360,7 @@ class NewObjectWatcher:
 
         # 如果没有任何新对象
         if total_new == 0:
-            if self._daily_summary and notifier.active:
+            if self._enabled and self._daily_summary and notifier.active:
                 notifier.send_summary(0)
                 pushed = 1
             msg = f"[新对象发现] {now.strftime('%Y-%m-%d')} 无新 PAYLOAD 编目"
@@ -366,7 +379,7 @@ class NewObjectWatcher:
         if write_log_fn:
             write_log_fn(msg)
 
-        if backtrack_note and notifier.active:
+        if self._enabled and backtrack_note and notifier.active:
             notifier.send_summary(total_new, note=backtrack_note)
             pushed += 1
 
@@ -384,19 +397,23 @@ class NewObjectWatcher:
                     )
             time.sleep(0.5)  # Telegram 限流保护
 
-        for i, rec in enumerate(unmatched):
-            if notifier.send_debut(rec, watched=False):
-                pushed += 1
-                if write_log_fn:
-                    write_log_fn(
-                        f"[新对象发现] 已推送: NORAD {rec.get('NORAD_CAT_ID')} "
-                        f"{rec.get('OBJECT_NAME', '?')} ({rec.get('OBJECT_ID', '?')})"
-                    )
-            # burst 限流：每 5 条暂停 2 秒
-            if (i + 1) % 5 == 0 and i + 1 < len(unmatched):
-                time.sleep(2)
-            else:
-                time.sleep(0.5)
+        if self._enabled:
+            for i, rec in enumerate(unmatched):
+                if notifier.send_debut(rec, watched=False):
+                    pushed += 1
+                    if write_log_fn:
+                        write_log_fn(
+                            f"[新对象发现] 已推送: NORAD {rec.get('NORAD_CAT_ID')} "
+                            f"{rec.get('OBJECT_NAME', '?')} ({rec.get('OBJECT_ID', '?')})"
+                        )
+                # burst 限流：每 5 条暂停 2 秒
+                if (i + 1) % 5 == 0 and i + 1 < len(unmatched):
+                    time.sleep(2)
+                else:
+                    time.sleep(0.5)
+        elif unmatched:
+            # watchlist-only 模式：未命中关注列表的对象不推送
+            log.info("新对象发现（仅关注模式）跳过 %d 个未命中对象", len(unmatched))
 
         self._cursor["total_processed"] += total_new
         self._save_cursor()
