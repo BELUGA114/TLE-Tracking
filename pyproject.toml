@@ -1,0 +1,16 @@
+[project]
+name = "tle-tracking"
+version = "2.0.0"
+description = "轻量级轨道监测系统：追踪卫星 TLE 更新，检测轨道变化，分析衰减趋势"
+requires-python = ">=3.11"
+# 运行时依赖以 requirements.txt 为准（Dockerfile 直接安装它）。
+# 这里只声明开发/测试依赖，避免同一份清单维护在两处。
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+# 只收集 tests/ 下的自动化测试；scripts/ 下的集成脚本（需外部服务）不参与
+testpaths = ["tests"]
+# 将项目根目录加入 sys.path，测试内可直接 import telegram_bot / new_object_watcher / backend.*
+pythonpath = ["."]
