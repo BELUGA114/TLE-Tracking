@@ -77,6 +77,20 @@ python telegram_bot.py  # Optional when Telegram credentials are configured
 
 Open `http://localhost:8000`.
 
+### Testing
+
+```bash
+python -m pip install pytest
+python -m pytest
+```
+
+Integration scripts under `scripts/` require external services:
+
+```bash
+python scripts/test_telegram_bot.py   # requires uvicorn running on localhost:8000
+python scripts/test_xpropagator.py    # requires the xpropagator gRPC container
+```
+
 ### Docker deployment
 
 Requires Docker Engine and Docker Compose v2. Docker uses `.env`, `config.yaml`, and the `./data` volume in the current directory.

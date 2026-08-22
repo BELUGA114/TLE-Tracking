@@ -75,7 +75,21 @@ python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
 python telegram_bot.py  # 配置 Telegram 凭据时可选
 ```
 
-访问 `http://localhost:8000`。
+访问 `http://localhost:8000`
+
+### 测试
+
+```bash
+python -m pip install pytest
+python -m pytest
+```
+
+`scripts/` 下的集成测试脚本需外部服务：
+
+```bash
+python scripts/test_telegram_bot.py   # 需 uvicorn 运行在 localhost:8000
+python scripts/test_xpropagator.py    # 需 xpropagator gRPC 容器运行
+```
 
 ### Docker 部署
 
