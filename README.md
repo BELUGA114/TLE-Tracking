@@ -54,12 +54,10 @@ new_object_discovery:
 
 ### 本地部署
 
-需要 Python 3.11+、Node.js 22+ 和 pnpm（可通过 Corepack 启用）
+需要 Python 3.11+、uv、Node.js 22+ 和 pnpm（pnpm 可通过 Corepack 启用）
 
 ```bash
-python -m venv .venv
-python -m pip install -r requirements.txt
-
+uv sync
 corepack enable
 cd frontend
 pnpm install
@@ -70,9 +68,9 @@ cd ..
 在独立终端中启动服务：
 
 ```bash
-python spacetrack_monitor.py
-python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
-python telegram_bot.py  # 配置 Telegram 凭据时可选
+uv run python spacetrack_monitor.py
+uv run uvicorn backend.main:app --host 0.0.0.0 --port 8000
+uv run python telegram_bot.py  # 配置 Telegram 凭据时可选
 ```
 
 访问 `http://localhost:8000`
@@ -80,15 +78,15 @@ python telegram_bot.py  # 配置 Telegram 凭据时可选
 ### 测试
 
 ```bash
-python -m pip install pytest
-python -m pytest
+uv sync --extra dev
+uv run pytest
 ```
 
 `scripts/` 下的集成测试脚本需外部服务：
 
 ```bash
-python scripts/test_telegram_bot.py   # 需 uvicorn 运行在 localhost:8000
-python scripts/test_xpropagator.py    # 需 xpropagator gRPC 容器运行
+uv run python scripts/test_telegram_bot.py   # 需 uvicorn 运行在 localhost:8000
+uv run python scripts/test_xpropagator.py    # 需 xpropagator gRPC 容器运行
 ```
 
 ### Docker 部署
@@ -109,7 +107,7 @@ docker compose up -d --no-build
 ### 前端开发
 
 ```bash
-python -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+uv run uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 cd frontend && pnpm install && pnpm dev
 ```
 

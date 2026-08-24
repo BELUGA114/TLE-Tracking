@@ -4,7 +4,7 @@
 用于验证字段格式和匹配逻辑是否正确。
 
 用法:
-    .venv/Scripts/python.exe scripts/dry_run_discovery.py
+    uv run python scripts/dry_run_discovery.py
 
 前置条件:
     .env 中已配置 SPACETRACK_USER / SPACETRACK_PASS

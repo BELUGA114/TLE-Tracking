@@ -6,10 +6,14 @@ FROM --platform=$BUILDPLATFORM node:22-alpine AS frontend-builder
 WORKDIR /build
 COPY frontend/ .
 
+# Docker 构建没有交互式 TTY，避免 pnpm 清理 node_modules 时等待确认。
+ENV CI=true
 RUN corepack enable && pnpm install --frozen-lockfile && pnpm build
 
 # Stage 2: Python 后端 + 核心监控 + 静态文件服务
 FROM python:3.11-slim
+
+COPY --from=ghcr.io/astral-sh/uv:0.12.5 /uv /uvx /bin/
 
 LABEL description="TLE-Tracking Orbital Monitor — Web Dashboard"
 LABEL version="2.0"
@@ -17,8 +21,9 @@ LABEL version="2.0"
 WORKDIR /app
 
 # 安装 Python 依赖
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY pyproject.toml uv.lock ./
+RUN uv sync --locked --no-dev --no-install-project
+ENV PATH="/app/.venv/bin:$PATH"
 
 # 复制核心监控脚本
 COPY spacetrack_monitor.py .

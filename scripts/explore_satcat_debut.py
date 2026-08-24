@@ -1,7 +1,7 @@
 """验证 satcat_debut API schema — modeldef 自省 + 实际查询
 
 用法:
-    .venv/Scripts/python.exe scripts/explore_satcat_debut.py
+    uv run python scripts/explore_satcat_debut.py
 
 前置条件:
     .env 中已配置 SPACETRACK_USER / SPACETRACK_PASS
