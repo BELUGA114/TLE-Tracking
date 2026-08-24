@@ -5,7 +5,7 @@
 NewObjectWatcher 解析测试已移至 tests/test_new_object_watcher.py。
 
 用法:
-    .venv/Scripts/python.exe scripts/test_telegram_bot.py
+    uv run python scripts/test_telegram_bot.py
 
 前置条件:
     uvicorn 在 localhost:8000 运行

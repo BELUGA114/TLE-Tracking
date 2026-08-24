@@ -17,7 +17,7 @@ Inline Keyboard：
   ForceReply: 点 [添加关注] 后回复消息输入前缀和备注
 
 用法:
-    .venv/Scripts/python.exe telegram_bot.py
+    uv run python telegram_bot.py
 """
 
 from __future__ import annotations

@@ -54,11 +54,10 @@ new_object_discovery:
 
 ### Local deployment
 
-Requires Python 3.11+, Node.js 22+, and pnpm (available through Corepack).
+Requires Python 3.11+, uv, Node.js 22+, and pnpm (pnpm is available through Corepack).
 
 ```bash
-python -m venv .venv
-python -m pip install -r requirements.txt
+uv sync
 
 corepack enable
 cd frontend
@@ -70,9 +69,9 @@ cd ..
 Start the services in separate terminals:
 
 ```bash
-python spacetrack_monitor.py
-python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
-python telegram_bot.py  # Optional when Telegram credentials are configured
+uv run python spacetrack_monitor.py
+uv run uvicorn backend.main:app --host 0.0.0.0 --port 8000
+uv run python telegram_bot.py  # Optional when Telegram credentials are configured
 ```
 
 Open `http://localhost:8000`.
@@ -80,15 +79,15 @@ Open `http://localhost:8000`.
 ### Testing
 
 ```bash
-python -m pip install pytest
-python -m pytest
+uv sync --extra dev
+uv run pytest
 ```
 
 Integration scripts under `scripts/` require external services:
 
 ```bash
-python scripts/test_telegram_bot.py   # requires uvicorn running on localhost:8000
-python scripts/test_xpropagator.py    # requires the xpropagator gRPC container
+uv run python scripts/test_telegram_bot.py   # requires uvicorn running on localhost:8000
+uv run python scripts/test_xpropagator.py    # requires the xpropagator gRPC container
 ```
 
 ### Docker deployment
@@ -109,7 +108,7 @@ The pre-built image is `ghcr.io/beluga114/tle-tracking:latest`. The container st
 ### Frontend development
 
 ```bash
-python -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+uv run uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 cd frontend && pnpm install && pnpm dev
 ```
 
