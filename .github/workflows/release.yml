@@ -22,10 +22,23 @@ jobs:
         with:
           fetch-depth: 0
 
+      # 忘记 bump 版本号时直接失败，避免镜像里的 pyproject 版本与 tag 不符
+      - name: 校验 tag 与 pyproject 版本一致
+        run: |
+          PY_VER=$(grep -m1 '^version' pyproject.toml | cut -d'"' -f2)
+          TAG_VER=${GITHUB_REF_NAME#v}
+          # PEP 440 记作 2.0.0rc1，semver tag 记作 v2.0.0-rc1，比较前统一去掉连字符
+          if [ "${PY_VER//-/}" != "${TAG_VER//-/}" ]; then
+            echo "::error::tag $GITHUB_REF_NAME 与 pyproject.toml 版本 $PY_VER 不一致"
+            exit 1
+          fi
+          echo "版本一致：$PY_VER"
+
       - name: Extract tag message
         run: |
           git fetch --tags --force
-          MSG=$(git for-each-ref --format='%(contents)' refs/tags/${{ github.ref_name }})
+          # 用环境变量而非表达式插值：tag 名允许包含 ; & | 等字符，直接拼进 shell 会成为注入面
+          MSG=$(git for-each-ref --format='%(contents)' "refs/tags/${GITHUB_REF_NAME}")
           # 随机分隔符：防止 tag 内容中出现 EOF 行导致 GITHUB_ENV 提前截断
           DELIM="TAG_MESSAGE_$(openssl rand -hex 12)"
           {

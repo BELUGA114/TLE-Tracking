@@ -15,8 +15,8 @@ FROM python:3.11-slim
 
 COPY --from=ghcr.io/astral-sh/uv:0.12.5 /uv /uvx /bin/
 
+# 版本标签由 metadata-action 注入 org.opencontainers.image.version（值即 git tag），此处不再硬编码
 LABEL description="TLE-Tracking Orbital Monitor — Web Dashboard"
-LABEL version="1.3.8"
 
 WORKDIR /app
 
