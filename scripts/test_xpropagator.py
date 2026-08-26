@@ -5,6 +5,7 @@ xpropagator 集成测试脚本
 """
 
 import logging
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s %(levelname)s %(name)s: %(message)s'
@@ -12,17 +13,19 @@ logging.basicConfig(
 
 import os
 import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import sys
+from datetime import UTC, datetime
+
 from xpropagator_client import (
+    _encode_alpha5,
+    classify_change_xprop,
+    gp_json_to_tle_lines,
     is_service_alive,
     propagate_tle,
-    classify_change_xprop,
-    _encode_alpha5,
-    gp_json_to_tle_lines,
 )
-from datetime import datetime, timezone
-import sys
 
 
 def test_service_connection():
@@ -52,7 +55,7 @@ def test_single_propagation():
     tle1 = "1 25544U 98067A   26116.52257038  .00009972  00000-0  18903-3 0  9999"
     tle2 = "2 25544  51.6321 195.8185 0006977 353.1614   6.9278 15.48971361563741"
     
-    target_time = datetime.now(timezone.utc)
+    target_time = datetime.now(UTC)
     
     print(f"NORAD ID: {norad_id}")
     print(f"卫星名称: {name}")
@@ -61,7 +64,7 @@ def test_single_propagation():
     sv = propagate_tle(norad_id, name, tle1, tle2, target_time)
     
     if sv:
-        print(f"\n预报成功:")
+        print("\n预报成功:")
         print(f"  位置 (km):     X={sv.x:10.3f}, Y={sv.y:10.3f}, Z={sv.z:10.3f}")
         print(f"  速度 (km/s):  VX={sv.vx:10.6f}, VY={sv.vy:10.6f}, VZ={sv.vz:10.6f}")
         
@@ -100,7 +103,7 @@ def test_maneuver_detection():
     print(f"\n卫星: {prev['name']} (NORAD {prev['norad']})")
     print(f"旧 TLE 历元: {prev['epoch']}")
     print(f"新 TLE 历元: {orbit['epoch']}")
-    print(f"\n轨道根数变化:")
+    print("\n轨道根数变化:")
     # 直接从 TLE 字符串解析轨道根数，避免依赖中间数据结构的字段名差异
     print(f"  倾角:     {prev['tle2'][8:16].strip()}° → {orbit['tle2'][8:16].strip()}°")
     print(f"  偏心率:   0.{prev['tle2'][26:33]} → 0.{orbit['tle2'][26:33]}")
@@ -147,24 +150,24 @@ def test_correction_detection():
     print(f"\n卫星: {prev['name']} (NORAD {prev['norad']})")
     print(f"旧 TLE 历元: {prev['epoch']}")
     print(f"新 TLE 历元: {orbit['epoch']}")
-    print(f"时间间隔: 0 分钟（相同历元）")
-    print(f"\n轨道根数变化:")
+    print("时间间隔: 0 分钟（相同历元）")
+    print("\n轨道根数变化:")
     print(f"  倾角:     {prev['tle2'][8:16].strip()}° → {orbit['tle2'][8:16].strip()}°")
     print(f"  偏心率:   0.{prev['tle2'][26:33]} → 0.{orbit['tle2'][26:33]}")
     print(f"  BSTAR:    {prev['tle1'].split()[4]} → {orbit['tle1'].split()[4]}")
     print(f"  平均运动: {prev['tle2'][52:63]} → {orbit['tle2'][52:63]}")
-    print(f"\n预期: 轨道根数几乎相同，应判定为解算修正")
+    print("\n预期: 轨道根数几乎相同，应判定为解算修正")
     
     result = classify_change_xprop(orbit, prev, maneuver_threshold_km=5.0)
     
     if result == "correction":
         print(f"\n[OK] 分类结果: {result.upper()} (解算修正)")
-        print(f"   残差 < 5 km，属于正常的轨道解算更新")
+        print("   残差 < 5 km，属于正常的轨道解算更新")
         return True
     elif result == "maneuver":
         print(f"\n[WARN] 分类结果: {result.upper()} (真实机动)")
-        print(f"   残差 >= 5 km，但预期应为解算修正")
-        print(f"   可能是阈值设置过小或数据异常")
+        print("   残差 >= 5 km，但预期应为解算修正")
+        print("   可能是阈值设置过小或数据异常")
         return True  # 仍然算通过，因为返回了有效分类
     else:
         print(f"\n[FAIL] 分类失败: {result}")
@@ -178,7 +181,6 @@ def test_no_tle_synthesis():
     print("=" * 60)
     
     # CelesTrak 不返回 TLE_LINE1/2，只返回 _raw_elements——需验证自动合成 TLE 后残差分析仍正确
-    from datetime import timezone
     
     prev_raw = {
         "norad": 25544,
@@ -253,20 +255,20 @@ def test_no_tle_synthesis():
     print(f"\n卫星: {prev_raw['name']} (NORAD {prev_raw['norad']})")
     print(f"旧历元: {prev_raw['epoch']}")
     print(f"新历元: {orbit_raw['epoch']}")
-    print(f"\n数据来源: CelesTrak (无 TLE_LINE1/2，只有 _raw_elements)")
-    print(f"预期行为: 自动从 _raw_elements 合成 TLE 后进行残差分析")
+    print("\n数据来源: CelesTrak (无 TLE_LINE1/2，只有 _raw_elements)")
+    print("预期行为: 自动从 _raw_elements 合成 TLE 后进行残差分析")
     
     result = classify_change_xprop(orbit_raw, prev_raw, maneuver_threshold_km=5.0)
     
     if result in ("maneuver", "correction"):
         verdict_cn = "真实机动" if result == "maneuver" else "解算修正"
         print(f"\n[OK] 分类结果: {result.upper()} ({verdict_cn})")
-        print(f"   xpropagator 成功处理了合成的 TLE")
-        print(f"   残差分析完成，返回有效分类")
+        print("   xpropagator 成功处理了合成的 TLE")
+        print("   残差分析完成，返回有效分类")
         return True
     else:
         print(f"\n[FAIL] 分类失败: {result}")
-        print(f"   xpropagator 未能正确处理合成的 TLE")
+        print("   xpropagator 未能正确处理合成的 TLE")
         return False
 
 
@@ -336,29 +338,29 @@ def test_alpha5_tle_synthesis():
 
     # 编目号应显示 Alpha-5 编码 E8493
     if "E8493" not in tle1 or "E8493" not in tle2:
-        print(f"[FAIL] TLE 编目号未正确编码为 Alpha-5")
+        print("[FAIL] TLE 编目号未正确编码为 Alpha-5")
         print(f"  TLE1: {tle1}")
         print(f"  TLE2: {tle2}")
         return False
 
-    print(f"  TLE 合成成功:")
+    print("  TLE 合成成功:")
     print(f"  TLE1: {tle1}")
     print(f"  TLE2: {tle2}")
-    print(f"  编目号 E8493 (NORAD 148493) 正确出现在两行中")
+    print("  编目号 E8493 (NORAD 148493) 正确出现在两行中")
 
     # 传播测试：Alpha-5 TLE 会被 _spoof_catalog_id 替换为伪 ID
-    target_time = datetime.now(timezone.utc)
+    target_time = datetime.now(UTC)
     sv = propagate_tle(148493, "STARLINK-12345", tle1, tle2, target_time)
 
     if sv:
         altitude = (sv.x**2 + sv.y**2 + sv.z**2)**0.5 - 6378.137
-        print(f"\n  传播成功（Alpha-5 被 spoof 替换后仍正常工作）:")
+        print("\n  传播成功（Alpha-5 被 spoof 替换后仍正常工作）:")
         print(f"  位置 (km):     X={sv.x:10.3f}, Y={sv.y:10.3f}, Z={sv.z:10.3f}")
         print(f"  轨道高度:      {altitude:.1f} km")
-        print(f"\n[OK] Alpha-5 TLE 合成 + 传播全部正常")
+        print("\n[OK] Alpha-5 TLE 合成 + 传播全部正常")
         return True
     else:
-        print(f"\n[FAIL] Alpha-5 TLE 传播失败")
+        print("\n[FAIL] Alpha-5 TLE 传播失败")
         return False
 
 

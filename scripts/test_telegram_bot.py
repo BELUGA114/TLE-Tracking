@@ -67,7 +67,10 @@ def test_http_endpoints() -> None:
     check("GET /api/discovery/status 返回 200", resp.status_code == 200)
     if resp.status_code == 200:
         data = resp.json()
-        for key in ["enabled", "last_check_ts", "last_debut_ts", "total_processed", "watched_launches_count", "next_check_at"]:
+        for key in [
+            "enabled", "last_check_ts", "last_debut_ts",
+            "total_processed", "watched_launches_count", "next_check_at",
+        ]:
             check(f"  status 包含 {key}", key in data)
 
     # GET /api/config

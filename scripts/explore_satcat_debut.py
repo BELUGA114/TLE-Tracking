@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
 
 import requests
 from dotenv import load_dotenv
@@ -108,12 +108,12 @@ def check_actual_data(session: requests.Session) -> None:
         return
 
     # 打印第一条记录的所有字段，用于验证
-    print(f"\n第一条记录的全部字段:")
+    print("\n第一条记录的全部字段:")
     print(json.dumps(data[0], indent=2, ensure_ascii=False))
 
     # 重点关注的字段
     first = data[0]
-    print(f"\n关键字段验证:")
+    print("\n关键字段验证:")
     for key in ["NORAD_CAT_ID", "OBJECT_NAME", "OBJECT_ID", "OBJECT_TYPE", "DEBUT", "COUNTRY"]:
         value = first.get(key, "<缺失>")
         print(f"  {key}: {value}")

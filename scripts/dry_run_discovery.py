@@ -15,16 +15,16 @@ from __future__ import annotations
 import json
 import os
 import sys
-from datetime import timezone
 
 # 将项目根目录加入 sys.path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
 from new_object_watcher import NewObjectWatcher
-from spacetrack_monitor import SpaceTrackSession, FetchStatus
+from spacetrack_monitor import FetchStatus, SpaceTrackSession
 
 SATCAT_DEBUT_URL = (
     "https://www.space-track.org/basicspacedata/query/class/satcat_debut"
@@ -60,11 +60,11 @@ def main() -> None:
         return
 
     # 3. 打印第一条记录的完整字段
-    print(f"\n[2] 第一条记录完整字段:")
+    print("\n[2] 第一条记录完整字段:")
     print(json.dumps(records[0], indent=2, ensure_ascii=False))
 
     # 4. 打印所有记录的概要
-    print(f"\n[3] 所有记录概要:")
+    print("\n[3] 所有记录概要:")
     print(f"    {'NORAD':<10} {'OBJECT_ID':<14} {'DEBUT':<22} {'NAME'}")
     print(f"    {'-'*10} {'-'*14} {'-'*22} {'-'*20}")
     for rec in records:
@@ -101,7 +101,7 @@ def main() -> None:
             print(f"      ... 还有 {len(unmatched) - 5} 条")
 
     # 6. 检查 OBJECT_ID 格式
-    print(f"\n[5] OBJECT_ID 格式检查:")
+    print("\n[5] OBJECT_ID 格式检查:")
     for rec in records[:10]:
         obj_id = str(rec.get("OBJECT_ID", ""))
         intldes = str(rec.get("INTLDES", ""))

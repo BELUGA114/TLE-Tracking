@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 
 import yaml
 from fastapi import APIRouter
@@ -23,7 +23,7 @@ CONFIG_PATH = os.path.join(_PROJECT_ROOT, "config.yaml")
 # 模块级配置缓存，供 DATA_DIR 解析使用
 def _load_config_cached() -> dict:
     try:
-        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+        with open(CONFIG_PATH, encoding="utf-8") as f:
             return yaml.safe_load(f) or {}
     except (FileNotFoundError, OSError, yaml.YAMLError):
         return {}
@@ -42,7 +42,7 @@ CURSOR_PATH = os.path.join(DATA_DIR, "new_object_cursor.json")
 def _read_cursor() -> dict:
     """读取游标文件，不存在或损坏时返回空 dict"""
     try:
-        with open(CURSOR_PATH, "r", encoding="utf-8") as f:
+        with open(CURSOR_PATH, encoding="utf-8") as f:
             return json.load(f)
     except (FileNotFoundError, OSError, json.JSONDecodeError):
         return {}
@@ -51,7 +51,7 @@ def _read_cursor() -> dict:
 def _read_config() -> dict:
     """读取 config.yaml"""
     try:
-        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+        with open(CONFIG_PATH, encoding="utf-8") as f:
             return yaml.safe_load(f) or {}
     except (FileNotFoundError, OSError, yaml.YAMLError):
         return {}
@@ -71,7 +71,7 @@ async def get_status():
     watched_count = len(watched) if isinstance(watched, list) else 0
 
     # 计算下次检查时间
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     next_check = now.replace(hour=schedule_hour, minute=schedule_minute, second=0, microsecond=0)
     if next_check <= now:
         next_check += timedelta(days=1)
