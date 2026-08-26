@@ -31,6 +31,10 @@ jobs:
       - name: 安装依赖
         run: uv sync --locked --extra dev
 
+      # 静态检查放在测试之前：规则违规不需要等跑完测试才报出来
+      - name: ruff 静态检查
+        run: uv run ruff check .
+
       # pytest 的 testpaths 已限定 tests/，scripts/ 下需要外部 gRPC 服务的集成脚本不会被收集
       - name: 运行测试
         run: uv run pytest
