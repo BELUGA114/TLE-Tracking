@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import sys
@@ -128,7 +129,8 @@ def check_actual_data(session: requests.Session) -> None:
             "%Y-%m-%d",
         ]:
             try:
-                parsed = datetime.strptime(str(debut_val), fmt)
+                # 本脚本的目的正是探测 naive 格式能否解析，故忽略 DTZ007
+                parsed = datetime.strptime(str(debut_val), fmt)  # noqa: DTZ007
                 print(f"  → 可解析为 {fmt}: {parsed}")
             except ValueError:
                 pass
@@ -153,10 +155,9 @@ def main() -> None:
         check_modeldef(session)
         check_actual_data(session)
     finally:
-        try:
+        # 登出属于收尾动作，失败不影响脚本结论
+        with contextlib.suppress(requests.RequestException):
             session.get(LOGOUT_URL, timeout=10)
-        except Exception:
-            pass
         session.close()
 
     print(f"\n{'='*60}")

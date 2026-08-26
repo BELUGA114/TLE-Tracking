@@ -5,11 +5,15 @@ Proto 定义参见 api/v1/ 目录。"""
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import math
+import os as _os
 import time
 from datetime import UTC, datetime
 from typing import NamedTuple
+
+import yaml as _yaml
 
 log = logging.getLogger(__name__)
 
@@ -39,9 +43,6 @@ _CALL_TIMEOUT:    float = 10.0   # 单次 RPC 调用超时（秒）
 
 # 尝试从 config.yaml 加载 xpropagator 地址（若存在则覆盖默认值）
 try:
-    import os as _os
-
-    import yaml as _yaml
     _script_dir = _os.path.dirname(_os.path.abspath(__file__))
     _cfg_path = _os.path.join(_script_dir, "config.yaml")
     if _os.path.exists(_cfg_path):
@@ -52,8 +53,8 @@ try:
             XPROP_HOST = str(_xprop_cfg["host"])
         if _xprop_cfg.get("port"):
             XPROP_PORT = int(_xprop_cfg["port"])
-except Exception:
-    pass
+except (OSError, _yaml.YAMLError, ValueError, TypeError) as _e:
+    log.debug("xpropagator: config.yaml 读取失败（%s），沿用默认地址 %s:%d", _e, XPROP_HOST, XPROP_PORT)
 
 
 class StateVector(NamedTuple):
@@ -92,7 +93,8 @@ def _parse_epoch_utc(epoch_str: str) -> datetime | None:
         "%Y-%m-%dT%H:%M:%S%z",
     ):
         try:
-            dt = datetime.strptime(epoch_str, fmt)
+            # 格式列表同时含 naive 与带时区两类，下方分支统一落到 UTC，故忽略 DTZ007
+            dt = datetime.strptime(epoch_str, fmt)  # noqa: DTZ007
             # 如果有时区信息，转换为 UTC；否则假设为 UTC
             if dt.tzinfo is not None:
                 return dt.astimezone(UTC)
@@ -163,15 +165,14 @@ def propagate_tle(
         r = resp.result
         return StateVector(r.x, r.y, r.z, r.vx, r.vy, r.vz)
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 gRPC 之外还可能抛出构造/序列化错误，一律降级为"无结果"
         log.warning("xpropagator RPC 失败 [NORAD %d @ %s]: %s",
                     norad_id, target_time.isoformat(), exc)
         return None
     finally:
-        try:
+        # 关闭通道属于清理动作，失败与否都不该影响调用方
+        with contextlib.suppress(Exception):
             channel.close()
-        except Exception:
-            pass
 
 
 def position_residual_km(sv_a: StateVector, sv_b: StateVector) -> float:
@@ -197,7 +198,7 @@ def _resolve_tle(orbit_dict: dict) -> tuple[str, str] | None:
     try:
         result = gp_json_to_tle_lines(raw)
         return result
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 合成失败原因多样（字段缺失、数值越界），统一降级
         log.error("xprop: TLE 合成失败 [NORAD %d]: %s", orbit_dict.get("norad"), e)
         return None
 
@@ -290,7 +291,7 @@ def is_service_alive(host: str = XPROP_HOST, port: int = XPROP_PORT) -> bool:
         channel.close()
         log.debug("xpropagator 已连接：%s %s", resp.name, resp.version)
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 探活的唯一语义是"能否连通"，任何异常都视为不可用
         log.warning("xpropagator 服务探活失败: %s", exc)
         return False
 
@@ -382,13 +383,18 @@ def _epoch_to_tle_str(epoch_str: str) -> str:
         "%Y-%m-%dT%H:%M:%S%z",
     ):
         try:
-            dt = datetime.strptime(epoch_str, fmt)
+            # 格式列表同时含 naive 与带时区两类，解析后统一折算到 UTC，故忽略 DTZ007
+            dt = datetime.strptime(epoch_str, fmt)  # noqa: DTZ007
             break
         except ValueError:
             continue
     else:
         log.warning("gp_json_to_tle_lines: 无法解析历元 '%s'，使用零值", epoch_str)
         return "00000.00000000"
+    # TLE 历元定义在 UTC：带时区的输入必须先折算，否则会把本地偏移当成 UTC 写进 TLE；
+    # naive 输入按 Space-Track GP JSON 的约定视为 UTC，无需换算
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(UTC)
     year_2d = dt.year % 100
     doy = dt.timetuple().tm_yday
     frac = (dt.hour * 3600 + dt.minute * 60 + dt.second + dt.microsecond / 1e6) / 86400.0
@@ -428,7 +434,9 @@ def _format_intl_designator(object_id: str) -> str:
         else:
             result = object_id
         return result[:8].ljust(8)
-    except Exception:
+    except (AttributeError, TypeError) as e:
+        # 非字符串输入（如 None）时退回空白字段，TLE 该列允许为空
+        log.debug("国际编号格式化失败 %r: %s", object_id, e)
         return "        "
 
 def gp_json_to_tle_lines(gp: dict) -> tuple[str, str]:

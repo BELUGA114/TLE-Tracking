@@ -35,7 +35,7 @@ class ConnectionManager:
         for ws in self.active:
             try:
                 await ws.send_text(message)
-            except Exception:
+            except Exception:  # noqa: BLE001 任一异常都意味着该连接已不可用，异常类型随 ASGI 实现而异
                 dead.append(ws)
         for ws in dead:
             self.active.discard(ws)
@@ -55,7 +55,7 @@ def _ensure_tle_lines(sat: dict) -> None:
         return
     try:
         sat["tle1"], sat["tle2"] = gp_json_to_tle_lines(raw)
-    except Exception:
+    except Exception:  # noqa: BLE001 合成失败原因多样，此处只做降级不追究类型
         if not sat.get("tle1") or not sat.get("tle2"):
             log.warning("TLE 行合成失败 [%s]", sat.get("norad", "?"))
         # 合成失败但已有原始 TLE：保留原始继续用（校验和可能有问题，但好过没有）
@@ -183,4 +183,4 @@ async def file_watcher() -> None:
             if tasks:
                 await asyncio.gather(*tasks)
         except Exception:
-            log.error("file_watcher 异常，3 秒后重试", exc_info=True)
+            log.exception("file_watcher 异常，3 秒后重试")

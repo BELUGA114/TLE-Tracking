@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
@@ -168,10 +169,8 @@ class NewObjectWatcher:
         except OSError as e:
             log.warning("游标文件写入失败: %s", e)
             # 清理临时文件
-            try:
+            with contextlib.suppress(OSError):
                 os.remove(tmp)
-            except OSError:
-                pass
 
     # 每天只检查一次，避免重复查询 satcat_debut API（速率限制 1次/天）
 
@@ -263,7 +262,8 @@ class NewObjectWatcher:
                 debut_ts = None
             if debut_ts is None:
                 try:
-                    debut_ts = datetime.strptime(debut_str, "%Y-%m-%d %H:%M:%S")
+                    # 下方紧随 tzinfo 补齐，naive datetime 不会外泄，故忽略 DTZ007
+                    debut_ts = datetime.strptime(debut_str, "%Y-%m-%d %H:%M:%S")  # noqa: DTZ007
                 except ValueError:
                     log.debug("无法解析 DEBUT 时间: %s，跳过", debut_str)
                     continue

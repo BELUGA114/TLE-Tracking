@@ -14,6 +14,7 @@ TLE-Tracking Web 仪表盘 — FastAPI 应用入口
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -41,10 +42,8 @@ async def lifespan(app: FastAPI):
     watcher = asyncio.create_task(file_watcher())
     yield
     watcher.cancel()
-    try:
+    with contextlib.suppress(asyncio.CancelledError):
         await watcher
-    except asyncio.CancelledError:
-        pass
 
 
 app = FastAPI(
@@ -75,6 +74,8 @@ async def websocket_endpoint(ws: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect(ws)
     except Exception:
+        # 非正常断开（网络重置、协议错误等）在生产中常见，用 debug 保留栈但不刷 warning
+        logging.getLogger(__name__).debug("WebSocket 异常断开", exc_info=True)
         manager.disconnect(ws)
 
 

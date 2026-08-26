@@ -92,7 +92,7 @@ def _load_config() -> dict:
             continue
         except (yaml.YAMLError, OSError) as e:
             logging.getLogger(__name__).error("配置文件加载失败 %s: %s", path, e)
-            raise SystemExit(1)
+            raise SystemExit(1) from e
 
     logging.getLogger(__name__).warning("未找到配置文件，所有参数使用默认值")
     _CONFIG_PATH = ""
@@ -474,8 +474,9 @@ class SpaceTrackSession:
     def logout(self) -> None:
         try:
             self._session.get(LOGOUT_URL, timeout=10)
-        except Exception:
-            pass
+        except requests.RequestException as e:
+            # 登出失败不影响后续流程（cookie 会被本地清掉），但留痕便于排查会话异常
+            log.debug("Space-Track 登出请求失败: %s", e)
         self._session.cookies.clear()
         self._logged_in_at = None
 
@@ -1154,8 +1155,8 @@ def _check_config_reload(prev_data: dict[int, dict], last_hash: dict[int, str]) 
     try:
         with open(_CONFIG_PATH, encoding="utf-8") as f:
             new_cfg = yaml.safe_load(f) or {}
-    except Exception:
-        log.warning("[config-reload] 读取 config.yaml 失败，跳过")
+    except (OSError, yaml.YAMLError) as e:
+        log.warning("[config-reload] 读取 config.yaml 失败，跳过: %s", e)
         return False
 
     changed = []

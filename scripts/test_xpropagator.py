@@ -383,7 +383,7 @@ def main():
         try:
             success = test_func()
             results.append((name, success))
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 测试驱动需兜住任意异常，避免单个用例中断整轮
             print(f"\n测试异常: {e}")
             import traceback
             traceback.print_exc()

@@ -155,7 +155,7 @@ async def update_config(
         try:
             _write_config(cfg)
         except OSError as e:
-            raise HTTPException(500, f"配置文件写入失败: {e}")
+            raise HTTPException(500, f"配置文件写入失败: {e}") from e
 
     return {"status": "ok", "message": "配置已保存，将在下一轮询周期生效"}
 
@@ -181,6 +181,6 @@ async def toggle_discovery(
         try:
             _write_config(cfg)
         except OSError as e:
-            raise HTTPException(500, f"配置文件写入失败: {e}")
+            raise HTTPException(500, f"配置文件写入失败: {e}") from e
 
     return {"enabled": new_val}
