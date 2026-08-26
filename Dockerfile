@@ -16,7 +16,7 @@ FROM python:3.11-slim
 COPY --from=ghcr.io/astral-sh/uv:0.12.5 /uv /uvx /bin/
 
 LABEL description="TLE-Tracking Orbital Monitor — Web Dashboard"
-LABEL version="2.0"
+LABEL version="1.3.8"
 
 WORKDIR /app
 
