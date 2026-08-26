@@ -6,6 +6,7 @@ import pytest
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 
+from backend.routers.config import toggle_discovery, update_config
 from backend.security import (
     SlidingWindowRateLimiter,
     enforce_config_write_rate_limit,
@@ -13,7 +14,6 @@ from backend.security import (
     require_dashboard_auth,
     serialize_javascript_string,
 )
-from backend.routers.config import toggle_discovery, update_config
 
 
 def test_serialization_cannot_close_script_element() -> None:

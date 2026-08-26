@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import patch
 
 import pytest
@@ -38,21 +38,21 @@ def _make_watcher(tmp_data_dir: str, enabled: bool, watched: list) -> NewObjectW
 
 def test_disabled_without_watchlist_never_due(tmp_data_dir: str) -> None:
     watcher = _make_watcher(tmp_data_dir, False, [])
-    fixed = datetime(2026, 8, 23, 18, 0, tzinfo=timezone.utc)  # 已过 17:10 UTC
+    fixed = datetime(2026, 8, 23, 18, 0, tzinfo=UTC)  # 已过 17:10 UTC
     with patch("new_object_watcher._utc_now", return_value=fixed):
         assert watcher.is_due is False
 
 
 def test_disabled_with_watchlist_is_due_after_schedule(tmp_data_dir: str) -> None:
     watcher = _make_watcher(tmp_data_dir, False, ["2026-085"])
-    fixed = datetime(2026, 8, 23, 18, 0, tzinfo=timezone.utc)
+    fixed = datetime(2026, 8, 23, 18, 0, tzinfo=UTC)
     with patch("new_object_watcher._utc_now", return_value=fixed):
         assert watcher.is_due is True
 
 
 def test_disabled_with_watchlist_not_due_before_schedule(tmp_data_dir: str) -> None:
     watcher = _make_watcher(tmp_data_dir, False, ["2026-085"])
-    fixed = datetime(2026, 8, 23, 10, 0, tzinfo=timezone.utc)  # 17:10 之前
+    fixed = datetime(2026, 8, 23, 10, 0, tzinfo=UTC)  # 17:10 之前
     with patch("new_object_watcher._utc_now", return_value=fixed):
         assert watcher.is_due is False
 
@@ -60,12 +60,14 @@ def test_disabled_with_watchlist_not_due_before_schedule(tmp_data_dir: str) -> N
 def _run_check(watcher: NewObjectWatcher, notifier: FakeNotifier, records: list[dict]) -> int:
     """在 mock 掉查询/持久化/睡眠的情况下执行一次 check()。"""
     watcher._cursor["last_debut_ts"] = "2026-08-23 16:00:00+00:00"
-    fixed = datetime(2026, 8, 23, 18, 0, tzinfo=timezone.utc)
-    with patch("new_object_watcher._utc_now", return_value=fixed):
-        with patch.object(watcher, "_query_debut", return_value=records):
-            with patch.object(watcher, "_save_cursor"):
-                with patch("new_object_watcher.time.sleep"):
-                    return watcher.check(None, notifier)
+    fixed = datetime(2026, 8, 23, 18, 0, tzinfo=UTC)
+    with (
+        patch("new_object_watcher._utc_now", return_value=fixed),
+        patch.object(watcher, "_query_debut", return_value=records),
+        patch.object(watcher, "_save_cursor"),
+        patch("new_object_watcher.time.sleep"),
+    ):
+        return watcher.check(None, notifier)
 
 
 def test_watchlist_only_pushes_matched_and_skips_unmatched(tmp_data_dir: str) -> None:

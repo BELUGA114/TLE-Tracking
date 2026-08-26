@@ -19,18 +19,18 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from dotenv import load_dotenv
 
 load_dotenv()
 
-from backend.routers import config, decay, history, satellites, discovery
+from backend.routers import config, decay, discovery, history, satellites
 from backend.security import inject_cesium_token
-from backend.services.ws_manager import manager, file_watcher, send_initial
-
+from backend.services.ws_manager import file_watcher, manager, send_initial
 from common.logging_config import setup_logging
+
 setup_logging("backend")
 
 

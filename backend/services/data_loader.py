@@ -12,7 +12,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Optional
 
 import yaml
 
@@ -36,7 +35,7 @@ def get_data_dir() -> str:
     try:
         cfg_path = os.path.join(root, "config.yaml")
         if os.path.exists(cfg_path):
-            with open(cfg_path, "r", encoding="utf-8") as f:
+            with open(cfg_path, encoding="utf-8") as f:
                 cfg = yaml.safe_load(f) or {}
             data_dir = cfg.get("files", {}).get("data_dir")
             if data_dir:
@@ -47,7 +46,7 @@ def get_data_dir() -> str:
     return local
 
 
-def _find_file(filename: str) -> Optional[str]:
+def _find_file(filename: str) -> str | None:
     """在数据目录下查找文件"""
 
     data_dir = get_data_dir()
@@ -71,7 +70,7 @@ def load_latest_satellites() -> list[dict]:
 
     latest: dict[int, dict] = {}
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line:
@@ -102,7 +101,7 @@ def load_satellite_history(norad_id: int, limit: int = 100) -> list[dict]:
 
     records: list[dict] = []
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line:
@@ -133,7 +132,7 @@ def load_change_history(limit: int = 50) -> list[dict]:
 
     records: list[dict] = []
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line:
@@ -160,7 +159,7 @@ def load_decay_state() -> dict:
     if not path:
         return {}
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             return json.load(f) or {}
     except (OSError, json.JSONDecodeError) as e:
         log.debug("decay_state.json 读取失败: %s", e)
@@ -177,7 +176,7 @@ def load_run_log(limit: int = 100) -> list[dict]:
 
     records: list[dict] = []
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line:

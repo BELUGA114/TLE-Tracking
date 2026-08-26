@@ -19,8 +19,6 @@ from __future__ import annotations
 
 import logging
 import time
-from datetime import datetime, timezone
-from typing import Optional
 
 import requests
 
@@ -56,8 +54,8 @@ def fetch_single(
     norad_id: int,
     use_supplemental: bool = False,
     timeout: int = 20,
-    user_agent: Optional[str] = None,
-) -> Optional[dict]:
+    user_agent: str | None = None,
+) -> dict | None:
     """
     向 CelesTrak 查询单颗卫星的 GP 数据（JSON 格式）。
     返回第一条记录（dict），字段与 Space-Track GP JSON 兼容；失败返回 None。

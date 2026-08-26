@@ -20,7 +20,7 @@ import json
 import logging
 import os
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 log = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ CURSOR_FILENAME = "new_object_cursor.json"
 
 def _utc_now() -> datetime:
     """返回当前 UTC 时间（可 mock 的工厂函数）"""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class NewObjectWatcher:
@@ -116,7 +116,7 @@ class NewObjectWatcher:
     def _load_cursor(self) -> dict:
         """加载游标文件，文件不存在或损坏时返回默认值（从当前时刻开始）"""
         try:
-            with open(self._cursor_path, "r", encoding="utf-8") as f:
+            with open(self._cursor_path, encoding="utf-8") as f:
                 data = json.load(f)
         except FileNotFoundError:
             log.info("游标文件 %s 不存在，将从当前时刻开始", self._cursor_path)
@@ -203,10 +203,7 @@ class NewObjectWatcher:
         # 检查当前时间是否已过调度时刻
         schedule_minutes = self._schedule_hour * 60 + self._schedule_minute
         now_minutes = now.hour * 60 + now.minute
-        if now_minutes < schedule_minutes:
-            return False
-
-        return True
+        return now_minutes >= schedule_minutes
 
     # 通过已登录的 SpaceTrackSession 查询 satcat_debut，返回原始记录列表
 
@@ -272,7 +269,7 @@ class NewObjectWatcher:
                     continue
             # fromisoformat 对空格分隔的字符串可能返回不带时区的 datetime，统一补 UTC
             if debut_ts.tzinfo is None:
-                debut_ts = debut_ts.replace(tzinfo=timezone.utc)
+                debut_ts = debut_ts.replace(tzinfo=UTC)
 
             # 去重：DEBUT 不晚于游标时间 → 跳过
             if debut_ts <= last_ts:

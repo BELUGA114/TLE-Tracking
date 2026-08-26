@@ -8,8 +8,8 @@ from __future__ import annotations
 import logging
 import math
 import time
-from datetime import datetime, timezone
-from typing import NamedTuple, Optional
+from datetime import UTC, datetime
+from typing import NamedTuple
 
 log = logging.getLogger(__name__)
 
@@ -20,9 +20,10 @@ try:
     import grpc
     from google.protobuf import empty_pb2
     from google.protobuf.timestamp_pb2 import Timestamp
+
+    from api.v1 import common_pb2  # Satellite, EphemerisData
     from api.v1 import main_pb2_grpc as pb2_grpc
-    from api.v1.core import prop_pb2              # PropRequest, PropTask, TimeType
-    from api.v1 import common_pb2                 # Satellite, EphemerisData
+    from api.v1.core import prop_pb2  # PropRequest, PropTask, TimeType
     _GRPC_AVAILABLE = True
     log.debug("xpropagator gRPC 存根加载成功")
 except ImportError as _e:
@@ -38,12 +39,13 @@ _CALL_TIMEOUT:    float = 10.0   # 单次 RPC 调用超时（秒）
 
 # 尝试从 config.yaml 加载 xpropagator 地址（若存在则覆盖默认值）
 try:
-    import yaml as _yaml
     import os as _os
+
+    import yaml as _yaml
     _script_dir = _os.path.dirname(_os.path.abspath(__file__))
     _cfg_path = _os.path.join(_script_dir, "config.yaml")
     if _os.path.exists(_cfg_path):
-        with open(_cfg_path, "r", encoding="utf-8") as _f:
+        with open(_cfg_path, encoding="utf-8") as _f:
             _cfg_data = _yaml.safe_load(_f) or {}
         _xprop_cfg = _cfg_data.get("xpropagator", {})
         if _xprop_cfg.get("host"):
@@ -66,7 +68,7 @@ class StateVector(NamedTuple):
 
 # ── 内部工具函数 ──────────────────────────────────────────────────────────────────
 
-def _parse_epoch_utc(epoch_str: str) -> Optional[datetime]:
+def _parse_epoch_utc(epoch_str: str) -> datetime | None:
     """
     解析 ISO 时间字符串为 UTC datetime 对象。
     
@@ -93,19 +95,19 @@ def _parse_epoch_utc(epoch_str: str) -> Optional[datetime]:
             dt = datetime.strptime(epoch_str, fmt)
             # 如果有时区信息，转换为 UTC；否则假设为 UTC
             if dt.tzinfo is not None:
-                return dt.astimezone(timezone.utc)
+                return dt.astimezone(UTC)
             else:
-                return dt.replace(tzinfo=timezone.utc)
+                return dt.replace(tzinfo=UTC)
         except ValueError:
             continue
     log.warning("xprop: 无法解析历元字符串: %s", epoch_str)
     return None
 
 
-def _dt_to_pb_timestamp(dt: datetime) -> "Timestamp":
+def _dt_to_pb_timestamp(dt: datetime) -> Timestamp:
     # 将 Python datetime（带 tzinfo）转换为 protobuf Timestamp
     ts = Timestamp()
-    ts.FromDatetime(dt.astimezone(timezone.utc))
+    ts.FromDatetime(dt.astimezone(UTC))
     return ts
 
 
@@ -119,7 +121,7 @@ def propagate_tle(
     target_time: datetime,
     host:        str = XPROP_HOST,
     port:        int = XPROP_PORT,
-) -> Optional[StateVector]:
+) -> StateVector | None:
     """
     调用 xpropagator Prop RPC，将 TLE 传播到 target_time（UTC）。
     返回：ECI 状态向量（km / km·s⁻¹），失败时返回 None。
@@ -205,7 +207,7 @@ def classify_change_xprop(
     maneuver_threshold_km:  float = 5.0,
     host:                   str   = XPROP_HOST,
     port:                   int   = XPROP_PORT,
-) -> Optional[str]:
+) -> str | None:
     """
     使用 xpropagator（USSF SGP4/SGP4-XP）做残差分析判断 TLE 变化性质。
 
@@ -323,16 +325,12 @@ def _spoof_catalog_id(tle1: str, tle2: str, fake_id: int) -> tuple[str, str]:
     tle2 = tle2.strip()
     
     # 确保长度至少 7 字符（容纳编号替换），不足填充，超出截断
-    if len(tle1) < 7:
-        tle1 = tle1.ljust(69)
-    elif len(tle1) < 69:
+    if len(tle1) < 7 or len(tle1) < 69:
         tle1 = tle1.ljust(69)
     elif len(tle1) > 69:
         tle1 = tle1[:69]
         
-    if len(tle2) < 7:
-        tle2 = tle2.ljust(69)
-    elif len(tle2) < 69:
+    if len(tle2) < 7 or len(tle2) < 69:
         tle2 = tle2.ljust(69)
     elif len(tle2) > 69:
         tle2 = tle2[:69]
@@ -481,7 +479,8 @@ def gp_json_to_tle_lines(gp: dict) -> tuple[str, str]:
             f"TLE Line 1 长度异常: 期望 68 字符，实际 {len(line1_body)} 字符。"
             f"可能原因：根数字段格式化错误或输入数据不完整。"
         )
-    line1 = line1_body + str(_tle_checksum(line1_body + "0"))  # "0"是占位符凑足69字符，_tle_checksum内部取前68字符忽略末位
+    # "0"是占位符凑足69字符，_tle_checksum内部取前68字符忽略末位
+    line1 = line1_body + str(_tle_checksum(line1_body + "0"))
 
     # ── Line 2（68字符正文 + 1字符校验）──
     # 列位（0-indexed）: [0]'2' [1]' ' [2:7]编号 [7]' ' [8:16]倾角 [16]' '
@@ -503,6 +502,7 @@ def gp_json_to_tle_lines(gp: dict) -> tuple[str, str]:
             f"TLE Line 2 长度异常: 期望 68 字符，实际 {len(line2_body)} 字符。"
             f"可能原因：根数字段格式化错误或输入数据不完整。"
         )
-    line2 = line2_body + str(_tle_checksum(line2_body + "0"))  # "0"是占位符凑足69字符，_tle_checksum内部取前68字符忽略末位
+    # "0"是占位符凑足69字符，_tle_checksum内部取前68字符忽略末位
+    line2 = line2_body + str(_tle_checksum(line2_body + "0"))
 
     return line1, line2

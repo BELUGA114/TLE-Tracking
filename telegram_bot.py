@@ -25,7 +25,6 @@ from __future__ import annotations
 import logging
 import os
 import time
-from typing import Optional
 
 import requests
 from dotenv import load_dotenv
@@ -34,6 +33,7 @@ load_dotenv()
 
 log = logging.getLogger(__name__)
 from common.logging_config import setup_logging
+
 setup_logging("bot")
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
@@ -69,7 +69,7 @@ def _set_api_key(value: str) -> bool:
     return True
 
 
-def _get_config() -> Optional[dict]:
+def _get_config() -> dict | None:
     try:
         resp = _session.get(f"{API_BASE}/api/config", headers=_api_headers(), timeout=10)
         if resp.status_code == 200:
@@ -95,7 +95,7 @@ def _put_config(updates: dict) -> bool:
         return False
 
 
-def _toggle_discovery() -> Optional[bool]:
+def _toggle_discovery() -> bool | None:
     """原子翻转 enabled，返回新值。避免读-改-写竞态。"""
     try:
         resp = _session.post(
@@ -112,7 +112,7 @@ def _toggle_discovery() -> Optional[bool]:
         return None
 
 
-def _get_status() -> Optional[dict]:
+def _get_status() -> dict | None:
     try:
         resp = _session.get(
             f"{API_BASE}/api/discovery/status", headers=_api_headers(), timeout=10
@@ -151,7 +151,7 @@ def _setup_commands() -> None:
         log.warning("setMyCommands 失败: %s", e)
 
 
-def _send_message(text: str, reply_markup: Optional[dict] = None) -> bool:
+def _send_message(text: str, reply_markup: dict | None = None) -> bool:
     payload: dict = {
         "chat_id": CHAT_ID,
         "text": text,
@@ -187,7 +187,7 @@ def _delete_message(chat_id: int, message_id: int) -> bool:
 
 
 def _edit_message_text(
-    chat_id: int, message_id: int, text: str, reply_markup: Optional[dict] = None
+    chat_id: int, message_id: int, text: str, reply_markup: dict | None = None
 ) -> bool:
     payload: dict = {
         "chat_id": chat_id,
@@ -319,7 +319,7 @@ def _write_watched(watched: list) -> bool:
     return _put_config({"new_object_discovery": {"watched_launches": watched}})
 
 
-def _find_watched_prefix(watched: list, prefix: str) -> Optional[dict]:
+def _find_watched_prefix(watched: list, prefix: str) -> dict | None:
     """在关注列表中查找指定前缀，返回匹配项和其在列表中的 dict 形态"""
     upper = prefix.strip().upper()
     for item in watched:
@@ -476,14 +476,16 @@ def _handle_toggle(cb: dict) -> None:
     时互相覆盖（两次 toggle 理应相消为原值）。
     """
     if not _is_cb_authorized(cb):
-        _answer_callback(cb["id"]); return
+        _answer_callback(cb["id"])
+        return
 
     # 先应答按钮，用户立刻看到反馈（即使 API 调用尚未返回）
     _answer_callback(cb["id"], "正在切换...")
 
     new_enabled = _toggle_discovery()
     if new_enabled is None:
-        _answer_callback(cb["id"], "切换失败，请重试"); return
+        _answer_callback(cb["id"], "切换失败，请重试")
+        return
 
     _answer_callback(cb["id"], f"总开关已{'开启' if new_enabled else '关闭'}")
 
@@ -509,7 +511,8 @@ def _handle_toggle(cb: dict) -> None:
 def _handle_watchlist_panel(cb: dict) -> None:
     """处理主菜单 [📋 关注列表] 按钮：切换到关注列表面板"""
     if not _is_cb_authorized(cb):
-        _answer_callback(cb["id"]); return
+        _answer_callback(cb["id"])
+        return
     watched = _read_watched()
     text = _build_watched_text(watched)
     keyboard = _build_watched_keyboard(watched)
@@ -524,15 +527,18 @@ def _handle_watchlist_panel(cb: dict) -> None:
 def _handle_remove(cb: dict, prefix: str) -> None:
     """处理关注列表中的 [🗑] 按钮：直接删除，刷新面板"""
     if not _is_cb_authorized(cb):
-        _answer_callback(cb["id"]); return
+        _answer_callback(cb["id"])
+        return
     watched = _read_watched()
     removed_item = _find_watched_prefix(watched, prefix)
     if removed_item is None:
-        _answer_callback(cb["id"], "该前缀已不存在"); return
+        _answer_callback(cb["id"], "该前缀已不存在")
+        return
 
     new_watched = [item for item in watched if item is not removed_item]
     if not _write_watched(new_watched):
-        _answer_callback(cb["id"], "保存失败"); return
+        _answer_callback(cb["id"], "保存失败")
+        return
 
     label = removed_item.get("label", "") if isinstance(removed_item, dict) else ""
     toast = f"已移除 {prefix}" + (f" — {label}" if label else "")
@@ -551,7 +557,8 @@ def _handle_remove(cb: dict, prefix: str) -> None:
 def _handle_addwatch_button(cb: dict) -> None:
     """处理主菜单 [➕ 添加关注] 按钮：发送 ForceReply 消息"""
     if not _is_cb_authorized(cb):
-        _answer_callback(cb["id"]); return
+        _answer_callback(cb["id"])
+        return
     _answer_callback(cb["id"])
     _send_message(
         f"{_FORCE_REPLY_PROMPT}\n\n"
@@ -564,10 +571,12 @@ def _handle_addwatch_button(cb: dict) -> None:
 def _handle_refresh(cb: dict) -> None:
     """处理 [🔄 刷新状态] / [⬅️ 返回主菜单] 按钮"""
     if not _is_cb_authorized(cb):
-        _answer_callback(cb["id"]); return
+        _answer_callback(cb["id"])
+        return
     status = _get_status()
     if status is None:
-        _answer_callback(cb["id"], "无法获取状态"); return
+        _answer_callback(cb["id"], "无法获取状态")
+        return
     config = _get_config()
     if config:
         nod = config.get("new_object_discovery", {})

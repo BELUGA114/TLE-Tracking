@@ -18,15 +18,15 @@ import hashlib
 import json
 import logging
 import math
-import time
 import os
-from dotenv import load_dotenv
-from datetime import datetime, timezone, timedelta
+import time
+from datetime import UTC, datetime, timedelta
 from enum import Enum, auto
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 import requests
 import yaml
+from dotenv import load_dotenv
 
 # CelesTrak 拉取模块（可选，主源为 celestrak 时启用）
 if TYPE_CHECKING:
@@ -49,6 +49,7 @@ except ImportError:
     _DISCOVERY_MODULE_OK = False
 
 from common.logging_config import setup_logging
+
 setup_logging("monitor")
 
 load_dotenv()
@@ -81,9 +82,9 @@ def _load_config() -> dict:
     script_dir = os.path.dirname(os.path.abspath(__file__))
     candidates.append(("script dir", os.path.join(script_dir, "config.yaml")))
 
-    for source, path in candidates:
+    for _source, path in candidates:
         try:
-            with open(path, "r", encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 cfg = yaml.safe_load(f) or {}
             _CONFIG_PATH = path
             return cfg
@@ -100,7 +101,8 @@ def _load_config() -> dict:
 _cfg = _load_config()
 
 NORAD_IDS: list[int] = _cfg.get("targets", {}).get("norad_ids", [25544])
-SCHEDULED_MINUTE: int = _cfg.get("schedule", {}).get("minute", 12)  # 每小时请求的分钟数（建议 12 或 48，避开整点/半点高峰）
+# 每小时请求的分钟数（建议 12 或 48，避开整点/半点高峰）
+SCHEDULED_MINUTE: int = _cfg.get("schedule", {}).get("minute", 12)
 DATA_DIR: str = (
     os.environ.get("DATA_DIR")
     or _cfg.get("files", {}).get("data_dir")
@@ -117,7 +119,8 @@ DATA_FILE: str = _data_path(_cfg.get("files", {}).get("data_file", "tle_data.jso
 CACHE_FILE: str = _data_path(_cfg.get("files", {}).get("cache",    "tle_cache.json"))   # 临时缓存，自动覆盖
 LOG_FILE: str = _data_path(_cfg.get("files", {}).get("run_log",  "tle_log.jsonl"))  # 运行日志（带轮转保护）
 REENTRY_WARNING_KM: int  = _cfg.get("alerts", {}).get("reentry_warning_km",   200)  # 近地点低于此值时发出再入预警
-SGP4_RELIABLE_FLOOR_KM: int = _cfg.get("alerts", {}).get("sgp4_reliable_floor_km", 350)  # SGP4 传播不可靠的高度阈值（大气阻力主导），低于此值跳过残差分析直接 fallback
+# SGP4 传播不可靠的高度阈值（大气阻力主导），低于此值跳过残差分析直接 fallback
+SGP4_RELIABLE_FLOOR_KM: int = _cfg.get("alerts", {}).get("sgp4_reliable_floor_km", 350)
 ONLY_PRINT_ON_UPDATE: bool = _cfg.get("alerts", {}).get("only_print_on_update", True)  # 仅在 TLE 变化时打印输出
 LOGIN_MAX_FAILURES: int = _cfg.get("retry", {}).get("login_max_failures",  5)  # 登录最大失败次数
 LOGIN_PAUSE_SECONDS: int = _cfg.get("retry", {}).get("login_pause_seconds", 1800)  # 登录失败后等待时间（秒）
@@ -157,7 +160,7 @@ MAX_LOG_SIZE: int = _cfg.get("files", {}).get(
 ) * 1024 * 1024
 
 # 安全的回退时间值（用于排序）
-_EPOCH_MIN = datetime(2000, 1, 1, tzinfo=timezone.utc)
+_EPOCH_MIN = datetime(2000, 1, 1, tzinfo=UTC)
 
 # Space-Track API 地址
 BASE_URL = "https://www.space-track.org"
@@ -166,7 +169,7 @@ LOGOUT_URL = f"{BASE_URL}/ajaxauth/logout"
 
 # User-Agent（可选，用于标识应用身份）
 # User-Agent 优先级：环境变量 USER_AGENT > config.yaml user_agent > 不设置
-SPACE_TRACK_USER_AGENT: Optional[str] = os.getenv("USER_AGENT") or _cfg.get("user_agent") or None
+SPACE_TRACK_USER_AGENT: str | None = os.getenv("USER_AGENT") or _cfg.get("user_agent") or None
 
 # 批量查询 URL：获取最近 1 小时内发布的所有 TLE
 # 这是 Space-Track 官方推荐的查询方式，符合 API 使用规范
@@ -183,11 +186,11 @@ BULK_TLE_URL = (
 log = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from xpropagator_client import classify_change_xprop, is_service_alive, _parse_epoch_utc
+    from xpropagator_client import _parse_epoch_utc, classify_change_xprop, is_service_alive
 
 # xpropagator 客户端（插件式，找不到模块时自动禁用）
 try:
-    from xpropagator_client import classify_change_xprop, is_service_alive, _parse_epoch_utc
+    from xpropagator_client import _parse_epoch_utc, classify_change_xprop, is_service_alive
     _XPROP_MODULE_OK = True
 except ImportError:
     _XPROP_MODULE_OK = False
@@ -209,7 +212,7 @@ def rotate_file_if_needed(filepath: str, max_size: int = MAX_LOG_SIZE) -> None:
         log.error("日志轮转失败: %s", e)
 
 
-def parse_datetime_utc(value: object) -> Optional[datetime]:
+def parse_datetime_utc(value: object) -> datetime | None:
     """
     将 Space-Track 返回的 ISO 时间字符串转换为 UTC datetime 对象。
     
@@ -230,8 +233,8 @@ def parse_datetime_utc(value: object) -> Optional[datetime]:
         return None
     # 如果没有时区信息，假设为 UTC
     if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc)
+        return dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC)
 
 
 # 本地缓存管理
@@ -248,7 +251,7 @@ class LocalCache:
     def _load(self) -> None:
         """从 JSON 文件加载缓存数据"""
         try:
-            with open(self._path, "r", encoding="utf-8") as f:
+            with open(self._path, encoding="utf-8") as f:
                 raw = json.load(f)
             if not isinstance(raw, dict):
                 raise ValueError("缓存格式错误")
@@ -277,7 +280,7 @@ class LocalCache:
             log.error("缓存写入失败: %s", e)
 
     @property
-    def last_fetch_ts(self) -> Optional[datetime]:
+    def last_fetch_ts(self) -> datetime | None:
         """获取上次请求的时间戳"""
         ts = parse_datetime_utc(self._data.get("last_fetch_ts"))
         if ts is None:
@@ -291,17 +294,17 @@ class LocalCache:
         ts = self.last_fetch_ts
         if ts is None:
             return float("inf")  # 从未请求过，返回无穷大
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         return (now - ts).total_seconds()
 
     def mark_fetched(self) -> None:
         """更新请求时间戳（请求成功时使用）"""
-        self._data["last_fetch_ts"] = datetime.now(timezone.utc).isoformat()
+        self._data["last_fetch_ts"] = datetime.now(UTC).isoformat()
         self._save()
 
     def save_raw_records(self, records: list[dict]) -> None:
         """保存全量原始记录（覆盖旧数据），并标记为待处理"""
-        self._data["last_fetch_ts"] = datetime.now(timezone.utc).isoformat()
+        self._data["last_fetch_ts"] = datetime.now(UTC).isoformat()
         self._data["raw_records"] = records
         self._data["pending"] = True  # 标记有未处理的数据
         self._save()
@@ -325,7 +328,7 @@ class LocalCache:
 
 def next_scheduled_time(minute: int = SCHEDULED_MINUTE) -> datetime:
     """计算下一个调度时刻（每小时的 :MM 分）"""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     target = now.replace(minute=minute, second=0, microsecond=0)
     # 如果当前时间已超过目标时间，则推到下一小时
     if target <= now:
@@ -336,7 +339,7 @@ def next_scheduled_time(minute: int = SCHEDULED_MINUTE) -> datetime:
 def wait_until(target: datetime) -> None:
     """阻塞等待到指定时刻（每分钟唤醒一次，便于响应 Ctrl-C）"""
     while True:
-        secs = (target - datetime.now(timezone.utc)).total_seconds()
+        secs = (target - datetime.now(UTC)).total_seconds()
         if secs <= 0:
             return
         time.sleep(min(secs, 60))
@@ -354,7 +357,7 @@ def compute_next_wake(cache: LocalCache, minute: int = SCHEDULED_MINUTE) -> date
     # 检查速率限制
     secs_since = cache.seconds_since_last_fetch()
     if secs_since < MIN_REQUEST_INTERVAL:
-        rate_ok_at = datetime.now(timezone.utc) + timedelta(
+        rate_ok_at = datetime.now(UTC) + timedelta(
             seconds=MIN_REQUEST_INTERVAL - secs_since
         )
         # 如果速率限制时刻明显晚于调度时刻（超过1分钟），才需要推迟到下一个小时
@@ -367,7 +370,7 @@ def compute_next_wake(cache: LocalCache, minute: int = SCHEDULED_MINUTE) -> date
     if NEW_OBJECT_DISCOVERY_ENABLED and _DISCOVERY_MODULE_OK:
         debut_hour = _new_obj_cfg.get("schedule_hour", 17)
         debut_minute = _new_obj_cfg.get("schedule_minute", 10)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         debut_target = now.replace(hour=debut_hour, minute=debut_minute, second=0, microsecond=0)
         if debut_target <= now:
             debut_target += timedelta(hours=24)
@@ -393,7 +396,7 @@ class SpaceTrackSession:
         if SPACE_TRACK_USER_AGENT:
             self._session.headers.update({"User-Agent": SPACE_TRACK_USER_AGENT})
         self._login_failures = 0
-        self._logged_in_at: Optional[float] = None
+        self._logged_in_at: float | None = None
 
     def _check_login_response(self, resp: requests.Response) -> bool:
         if resp.status_code != 200:
@@ -483,7 +486,7 @@ class SpaceTrackSession:
             self._session.headers.update({"User-Agent": SPACE_TRACK_USER_AGENT})
         return self.login_with_retry()
 
-    def get(self, url: str) -> "requests.Response | FetchStatus":
+    def get(self, url: str) -> requests.Response | FetchStatus:
         """发送 GET 请求，带重试和错误处理"""
         for attempt in range(1, REQUEST_MAX_RETRIES + 1):
             try:
@@ -509,7 +512,7 @@ class SpaceTrackSession:
                     return FetchStatus.SKIP
         return FetchStatus.SKIP
 
-    def __enter__(self) -> "SpaceTrackSession":
+    def __enter__(self) -> SpaceTrackSession:
         return self
 
     def __exit__(self, *_) -> None:
@@ -519,7 +522,7 @@ class SpaceTrackSession:
 
 # 批量拉取和本地筛选
 
-def fetch_bulk_tle(st: SpaceTrackSession) -> "list[dict] | FetchStatus":
+def fetch_bulk_tle(st: SpaceTrackSession) -> list[dict] | FetchStatus:
     """批量拉取最近 1 小时内发布的所有 TLE（消耗 1 次 gp 配额）"""
     result = st.get(BULK_TLE_URL)
     if isinstance(result, FetchStatus):
@@ -533,7 +536,7 @@ def fetch_bulk_tle(st: SpaceTrackSession) -> "list[dict] | FetchStatus":
     return data
 
 
-def fetch_bulk_with_relogin(st: SpaceTrackSession) -> Optional[list[dict]]:
+def fetch_bulk_with_relogin(st: SpaceTrackSession) -> list[dict] | None:
     """
     带重登录保护的批量拉取
     如果遇到 401 错误，重新登录后不会立即重试 gp 请求
@@ -631,7 +634,7 @@ def _calculate_orbital_params(mean_motion: float, eccentricity: float) -> dict:
     }
 
 
-def classify_change(orbit: dict, prev: Optional[dict]) -> str:
+def classify_change(orbit: dict, prev: dict | None) -> str:
     """
     判断 TLE 变化是真实机动还是解算修正。
     优先策略（当 xpropagator 已启用且在线）：
@@ -783,7 +786,7 @@ def parse_orbit(record: dict) -> dict:
     }
 
 
-def estimate_reentry_days(orbit: dict) -> Optional[float]:
+def estimate_reentry_days(orbit: dict) -> float | None:
     """
     基于 BSTAR 和简化大气模型估算剩余再入天数（仅供参考）
     原理：通过大气阻力引起的平均运动变化率推算轨道衰减速度
@@ -817,7 +820,7 @@ def format_reentry_estimate(days: float) -> str:
     return f"约 {days:.0f} 天（粗估，误差较大）"
 
 
-def print_orbit(orbit: dict, prev: Optional[dict]) -> None:
+def print_orbit(orbit: dict, prev: dict | None) -> None:
     """格式化打印轨道信息"""
     peri, apo = orbit["periapsis"], orbit["apoapsis"]
     delta = ""
@@ -834,20 +837,24 @@ def print_orbit(orbit: dict, prev: Optional[dict]) -> None:
     TLE Hash: {orbit['tle_hash']}
   ==============================================={delta}
   {orbit['tle1']}
-  {orbit['tle2']}""")
+  {orbit['tle2']}""")  # noqa: G004 多行排版块，改用位置参数会让模板与实参错位
     # 再入预警
     if REENTRY_WARNING_KM > 0 and peri < REENTRY_WARNING_KM:
         days = estimate_reentry_days(orbit)
         if days is not None:
-            log.info(f"   再入高风险：近地点 {peri:.1f} km，预计 {format_reentry_estimate(days)}，实际误差可达数倍")
+            log.info(
+                "   再入高风险：近地点 %.1f km，预计 %s，实际误差可达数倍",
+                peri,
+                format_reentry_estimate(days),
+            )
         else:
-            log.info(f"   再入高风险：近地点 {peri:.1f} km")
+            log.info("   再入高风险：近地点 %.1f km", peri)
             if orbit["bstar"] <= 0:
                 log.info("     BSTAR=0，寿命无法估算（可能为初始定轨解，阻力项尚未计算）")
             else:
                 log.info("     近地点 > 400 km 或周期无效，不满足估算条件")
     elif peri < 300:
-        log.info(f"     注意：近地点 {peri:.1f} km，大气阻力明显，轨道将持续衰减")
+        log.info("     注意：近地点 %.1f km，大气阻力明显，轨道将持续衰减", peri)
 
 
 def log_record(orbit: dict, change_type: str = "unknown", source: str = "spacetrack") -> None:
@@ -856,7 +863,7 @@ def log_record(orbit: dict, change_type: str = "unknown", source: str = "spacetr
         return
     rotate_file_if_needed(DATA_FILE)
     entry = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "change_type": change_type,  # 变化类型：initial/correction/maneuver
         "source": source,            # 数据来源：spacetrack / celestrak / celestrak_sup
         **orbit
@@ -873,7 +880,7 @@ def write_log_message(message: str) -> None:
     if not LOG_FILE:
         return
     rotate_file_if_needed(LOG_FILE)
-    entry = {"timestamp": datetime.now(timezone.utc).isoformat(), "message": message}
+    entry = {"timestamp": datetime.now(UTC).isoformat(), "message": message}
     try:
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
@@ -991,7 +998,10 @@ def process_records(
             change_type = classify_change(orbit, prev)
             change_type_cn = format_change_type(change_type)  # 中英文对照
             
-            msg = f"[{norad_id}] 检测到 TLE 变化！(hash: {last_hash.get(norad_id, '无')} → {cur_hash}, 类型: {change_type_cn})"
+            msg = (
+                f"[{norad_id}] 检测到 TLE 变化！"
+                f"(hash: {last_hash.get(norad_id, '无')} → {cur_hash}, 类型: {change_type_cn})"
+            )
             log.info(msg)
             write_log_message(msg)
 
@@ -1104,7 +1114,7 @@ def run_celestrak_cycle(
 _config_mtime: float = 0.0
 
 # 新对象发现模块实例（main() 中初始化，_check_config_reload 中热重载）
-_new_watcher: "NewObjectWatcher | None" = None
+_new_watcher: NewObjectWatcher | None = None
 
 ALLOWED_RELOAD_KEYS = {
     "targets.norad_ids",
@@ -1142,7 +1152,7 @@ def _check_config_reload(prev_data: dict[int, dict], last_hash: dict[int, str]) 
     _config_mtime = current_mtime
 
     try:
-        with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
+        with open(_CONFIG_PATH, encoding="utf-8") as f:
             new_cfg = yaml.safe_load(f) or {}
     except Exception:
         log.warning("[config-reload] 读取 config.yaml 失败，跳过")
@@ -1365,11 +1375,10 @@ def main() -> None:
                 _check_config_reload(prev_data, last_hash)
 
                 write_log_message(
-                    f"[{datetime.now(timezone.utc).strftime('%H:%M:%S')}] 开始批量拉取（主源: spacetrack）"
+                    f"[{datetime.now(UTC).strftime('%H:%M:%S')}] 开始批量拉取（主源: spacetrack）"
                 )
 
                 # 主源请求
-                success = False
                 if active_source == "spacetrack":
                     if not st.ensure_fresh_session():
                         log.error("登录失败")
@@ -1380,7 +1389,6 @@ def main() -> None:
                             consecutive_failures["count"] += 1
                         else:
                             consecutive_failures["count"] = 0
-                            success = True
                             cache.save_raw_records(all_records)
                             raw_records = filter_by_norad(all_records, NORAD_IDS)
                             # 注入来源标识
@@ -1413,7 +1421,10 @@ def main() -> None:
                         "主源 %s 连续失败 %d 次，切换到备源 %s",
                         PRIMARY_SOURCE, consecutive_failures["count"], FALLBACK_SOURCE,
                     )
-                    write_log_message(f"备源切换：{PRIMARY_SOURCE} → {FALLBACK_SOURCE}（连续失败 {consecutive_failures['count']} 次）")
+                    write_log_message(
+                        f"备源切换：{PRIMARY_SOURCE} → {FALLBACK_SOURCE}"
+                        f"（连续失败 {consecutive_failures['count']} 次）"
+                    )
                     active_source = FALLBACK_SOURCE
 
     else:
@@ -1423,10 +1434,10 @@ def main() -> None:
         # 加载 CelesTrak 轮询时间戳缓存（用于速率保护）
         # 使用 time.time()（Unix 时间戳）存储，确保跨重启有效
         celestrak_cache_path = _data_path("celestrak_poll_cache.json")
-        celestrak_last_poll: Optional[float] = None
+        celestrak_last_poll: float | None = None
         try:
             if os.path.exists(celestrak_cache_path):
-                with open(celestrak_cache_path, "r", encoding="utf-8") as f:
+                with open(celestrak_cache_path, encoding="utf-8") as f:
                     cache_data = json.load(f)
                     raw_ts = cache_data.get("last_poll_ts")
                     now = time.time()
@@ -1472,7 +1483,7 @@ def main() -> None:
             _check_config_reload(prev_data, last_hash)
 
             write_log_message(
-                f"[{datetime.now(timezone.utc).strftime('%H:%M:%S')}] 开始 CelesTrak 轮询"
+                f"[{datetime.now(UTC).strftime('%H:%M:%S')}] 开始 CelesTrak 轮询"
             )
 
             ok = run_celestrak_cycle(prev_data, last_hash, consecutive_failures)
@@ -1496,7 +1507,10 @@ def main() -> None:
                         and _st_required):
                     if active_source != "spacetrack":
                         write_log_message("切换到备源 Space-Track")
-                        write_log_message(f"备源切换：celestrak → spacetrack（连续失败 {consecutive_failures['count']} 次）")
+                        write_log_message(
+                            "备源切换：celestrak → spacetrack"
+                            f"（连续失败 {consecutive_failures['count']} 次）"
+                        )
                     active_source = "spacetrack"
                     # Space-Track 备源：单次批量拉取
                     with SpaceTrackSession() as st_tmp:

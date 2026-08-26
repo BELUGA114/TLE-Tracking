@@ -38,7 +38,7 @@ ALLOWED_PATHS = {
 def _read_config() -> dict:
     if not os.path.exists(CONFIG_PATH):
         return {}
-    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+    with open(CONFIG_PATH, encoding="utf-8") as f:
         return yaml.safe_load(f) or {}
 
 
