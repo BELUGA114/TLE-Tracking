@@ -22,6 +22,7 @@ Inline Keyboard：
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 import time
@@ -208,14 +209,13 @@ def _edit_message_text(
 
 
 def _answer_callback(callback_query_id: str, text: str = "") -> None:
-    try:
+    # 应答失败只影响按钮的加载动画，不值得中断回调处理
+    with contextlib.suppress(requests.RequestException):
         _session.post(
             f"{TELEGRAM_API}/answerCallbackQuery",
             json={"callback_query_id": callback_query_id, "text": text},
             timeout=10,
         )
-    except requests.RequestException:
-        pass
 
 
 # ── 键盘构建 ──

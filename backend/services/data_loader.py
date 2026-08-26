@@ -40,7 +40,7 @@ def get_data_dir() -> str:
             data_dir = cfg.get("files", {}).get("data_dir")
             if data_dir:
                 return data_dir
-    except Exception as exc:
+    except (OSError, yaml.YAMLError) as exc:
         log.debug("config.yaml 读取失败: %s", exc)
 
     return local

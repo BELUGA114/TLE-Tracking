@@ -36,6 +36,10 @@ select = ["E", "F", "I", "UP", "B", "SIM", "DTZ", "BLE", "C4", "G", "LOG", "RUF"
 # 未选 S：bandit 会把 tests/ 里的 assert 全部报错，收益不足。
 ignore = ["RUF001", "RUF002", "RUF003"]
 
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI 的依赖注入约定即在默认参数里调用 Depends/Security，B008 对其为误报
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Security"]
+
 [tool.ruff.lint.per-file-ignores]
 # load_dotenv() 必须在业务模块导入前执行，否则模块级读取的环境变量为空
 "backend/main.py" = ["E402"]
