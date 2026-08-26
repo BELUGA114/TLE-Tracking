@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: Python 测试
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      # --locked 与 Dockerfile 中的 uv sync 使用同一约束：
+      # 一旦 pyproject.toml 与 uv.lock 不一致，此处即失败，不必等到打 tag 构建镜像时才发现
+      - name: 安装依赖
+        run: uv sync --locked --extra dev
+
+      # pytest 的 testpaths 已限定 tests/，scripts/ 下需要外部 gRPC 服务的集成脚本不会被收集
+      - name: 运行测试
+        run: uv run pytest
+
+  frontend:
+    name: 前端类型检查与构建
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # 仓库根目录没有 package.json，pnpm 版本需从 frontend/package.json 的 packageManager 字段读取
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: frontend/package.json
+
+      - uses: actions/setup-node@v5
+        with:
+          # 对齐 Dockerfile 的 node:22-alpine，避免 CI 通过而发布构建失败
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      # pnpm build == vue-tsc -b && vite build，类型检查与产物构建一并覆盖
+      - name: 类型检查与构建
+        run: pnpm build
+
+  docker:
+    name: 镜像构建验证
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v3
+
+      # 只构建 linux/amd64：arm64 需要 QEMU，验证阶段的收益低于耗时成本，
+      # 多架构留给 tag 发布。缓存 scope 与 Docker Release 一致，main 上的构建可为发布预热缓存
+      - name: 构建镜像（不推送）
+        uses: docker/build-push-action@v6
+        with:
+          push: false
+          platforms: linux/amd64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

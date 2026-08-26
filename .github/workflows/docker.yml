@@ -5,6 +5,11 @@ on:
     tags:
       - "v*"
 
+# 同一 tag 重复推送时串行处理，避免两次构建并发推送同名镜像
+concurrency:
+  group: docker-release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
@@ -13,7 +18,7 @@ jobs:
       packages: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -21,17 +26,25 @@ jobs:
         run: |
           git fetch --tags --force
           MSG=$(git for-each-ref --format='%(contents)' refs/tags/${{ github.ref_name }})
-          echo "TAG_MESSAGE<<EOF" >> $GITHUB_ENV
-          echo "$MSG" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+          # 随机分隔符：防止 tag 内容中出现 EOF 行导致 GITHUB_ENV 提前截断
+          DELIM="TAG_MESSAGE_$(openssl rand -hex 12)"
+          {
+            echo "TAG_MESSAGE<<${DELIM}"
+            echo "$MSG"
+            echo "${DELIM}"
+          } >> "$GITHUB_ENV"
 
       - uses: docker/metadata-action@v5
         id: meta
         with:
           images: ghcr.io/${{ github.repository }}
+          # 保留历史上的 v 前缀完整标签（v1.3.7），并补充 v1.3 / v1 便于按精度 pin；
+          # 预发布 tag（含连字符，如 v2.0.0-rc1）不会移动 latest 与 v1.3 / v1
           tags: |
             type=ref,event=tag
-            type=raw,value=latest
+            type=semver,pattern=v{{major}}.{{minor}}
+            type=semver,pattern=v{{major}}
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
 
       - uses: docker/setup-qemu-action@v3
 
@@ -57,3 +70,6 @@ jobs:
         with:
           body: ${{ env.TAG_MESSAGE }}
           tag_name: ${{ github.ref_name }}
+          # tag 说明之后追加自动生成的变更列表
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
