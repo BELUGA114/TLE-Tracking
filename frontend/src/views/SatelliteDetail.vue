@@ -26,17 +26,17 @@
       <div class="card" style="margin-bottom:1.5rem;">
         <h3 class="section-title">最新轨道参数</h3>
         <div class="detail-grid">
-          <DetailItem label="近地点 (km)" :value="sat.periapsis?.toFixed(1) ?? '-'" />
-          <DetailItem label="远地点 (km)" :value="sat.apoapsis?.toFixed(1) ?? '-'" />
-          <DetailItem label="倾角 (°)" :value="sat.incl?.toFixed(2) ?? '-'" />
-          <DetailItem label="偏心率" :value="sat.ecc?.toFixed(5) ?? '-'" />
-          <DetailItem label="周期 (min)" :value="sat.period?.toFixed(3) ?? '-'" />
-          <DetailItem label="B* 阻力系数" :value="sat.bstar != null ? sat.bstar.toExponential(4) : '-'" />
-          <DetailItem label="升交点赤经 (°)" :value="sat.RA_OF_ASC_NODE?.toFixed(4) ?? '-'" />
-          <DetailItem label="近地点辐角 (°)" :value="sat.ARG_OF_PERICENTER?.toFixed(4) ?? '-'" />
-          <DetailItem label="平近点角 (°)" :value="sat.MEAN_ANOMALY?.toFixed(4) ?? '-'" />
-          <DetailItem label="平运动 (圈/天)" :value="sat.MEAN_MOTION?.toFixed(6) ?? '-'" />
-          <DetailItem label="平运动一阶导" :value="sat.MEAN_MOTION_DOT != null ? sat.MEAN_MOTION_DOT.toExponential(4) : '-'" />
+          <DetailItem label="近地点 (km)" :value="fixed(sat.periapsis, 1)" />
+          <DetailItem label="远地点 (km)" :value="fixed(sat.apoapsis, 1)" />
+          <DetailItem label="倾角 (°)" :value="fixed(sat.incl, 2)" />
+          <DetailItem label="偏心率" :value="fixed(sat.ecc, 5)" />
+          <DetailItem label="周期 (min)" :value="fixed(sat.period, 3)" />
+          <DetailItem label="B* 阻力系数" :value="expo(sat.bstar, 4)" />
+          <DetailItem label="升交点赤经 (°)" :value="fixed(sat.RA_OF_ASC_NODE, 4)" />
+          <DetailItem label="近地点辐角 (°)" :value="fixed(sat.ARG_OF_PERICENTER, 4)" />
+          <DetailItem label="平近点角 (°)" :value="fixed(sat.MEAN_ANOMALY, 4)" />
+          <DetailItem label="平运动 (圈/天)" :value="fixed(sat.MEAN_MOTION, 6)" />
+          <DetailItem label="平运动一阶导" :value="expo(sat.MEAN_MOTION_DOT, 4)" />
           <DetailItem label="保密等级" :value="classificationLabel(sat.CLASSIFICATION_TYPE)" />
           <DetailItem label="历元时圈数" :value="String(sat.REV_AT_EPOCH ?? '-')" />
           <DetailItem label="根数集编号" :value="String(sat.ELEMENT_SET_NO ?? '-')" />
@@ -62,9 +62,9 @@
               <tr v-for="r in satelliteHistory" :key="r.tle_hash">
                 <td style="white-space:nowrap;">{{ (r.epoch || "").slice(0, 19) }}</td>
                 <td><span :class="tagClass(r.change_type)">{{ changeLabel(r.change_type) }}</span></td>
-                <td>{{ r.periapsis?.toFixed(1) ?? "-" }}</td>
-                <td>{{ r.apoapsis?.toFixed(1) ?? "-" }}</td>
-                <td>{{ r.incl?.toFixed(2) ?? "-" }}</td>
+                <td>{{ fixed(r.periapsis, 1) }}</td>
+                <td>{{ fixed(r.apoapsis, 1) }}</td>
+                <td>{{ fixed(r.incl, 2) }}</td>
               </tr>
               <tr v-if="!satelliteHistory.length">
                 <td colspan="5" style="text-align:center;color:#64748b;">暂无历史数据</td>
@@ -94,6 +94,7 @@ import DetailItem from "../components/DetailItem.vue"
 import TrendChart from "../components/TrendChart.vue"
 import { useWebSocket } from "../composables/useWebSocket"
 import { fetchSatelliteHistory } from "../api"
+import { fixed, expo } from "../utils/format"
 import type { HistoryRecord } from "../types"
 
 const route = useRoute()

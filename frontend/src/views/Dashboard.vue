@@ -103,12 +103,12 @@
                 <tr class="detail-row" style="display:none;">
                   <td colspan="9">
                     <div class="detail-grid">
-                      <DetailItem label="升交点赤经 (°)" :value="sat.RA_OF_ASC_NODE?.toFixed(4)" />
-                      <DetailItem label="近地点辐角 (°)" :value="sat.ARG_OF_PERICENTER?.toFixed(4)" />
-                      <DetailItem label="平近点角 (°)" :value="sat.MEAN_ANOMALY?.toFixed(4)" />
-                      <DetailItem label="平运动 (圈/天)" :value="sat.MEAN_MOTION?.toFixed(6)" />
-                      <DetailItem label="平运动一阶导" :value="sat.MEAN_MOTION_DOT != null ? sat.MEAN_MOTION_DOT.toExponential(4) : '-'" />
-                      <DetailItem label="B* 阻力系数" :value="sat.bstar != null ? sat.bstar.toExponential(4) : '-'" />
+                      <DetailItem label="升交点赤经 (°)" :value="fixed(sat.RA_OF_ASC_NODE, 4)" />
+                      <DetailItem label="近地点辐角 (°)" :value="fixed(sat.ARG_OF_PERICENTER, 4)" />
+                      <DetailItem label="平近点角 (°)" :value="fixed(sat.MEAN_ANOMALY, 4)" />
+                      <DetailItem label="平运动 (圈/天)" :value="fixed(sat.MEAN_MOTION, 6)" />
+                      <DetailItem label="平运动一阶导" :value="expo(sat.MEAN_MOTION_DOT, 4)" />
+                      <DetailItem label="B* 阻力系数" :value="expo(sat.bstar, 4)" />
                       <DetailItem label="历元时圈数" :value="String(sat.REV_AT_EPOCH ?? '-')" />
                       <DetailItem label="国际编号" :value="sat.intl_id || '-'" />
                       <DetailItem label="根数集编号" :value="String(sat.ELEMENT_SET_NO ?? '-')" />
@@ -144,6 +144,7 @@ import AltitudeChart from "../components/AltitudeChart.vue"
 import VcrControls from "../components/VcrControls.vue"
 import { useWebSocket } from "../composables/useWebSocket"
 import { useGpuPropagation } from "../composables/useGpuPropagation"
+import { fixed, expo } from "../utils/format"
 
 const CesiumViewer = defineAsyncComponent(() => import("../components/CesiumViewer.vue"))
 
