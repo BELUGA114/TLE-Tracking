@@ -46,24 +46,24 @@
                   <span :class="tagClass(r.change_type)">{{ changeLabel(r.change_type) }}</span>
                 </td>
                 <td>{{ r.source || "-" }}</td>
-                <td>{{ r.periapsis?.toFixed(1) ?? "-" }}</td>
-                <td>{{ r.apoapsis?.toFixed(1) ?? "-" }}</td>
-                <td>{{ r.incl?.toFixed(2) ?? "-" }}</td>
-                <td>{{ r.ecc?.toFixed(5) ?? "-" }}</td>
-                <td>{{ r.period?.toFixed(3) ?? "-" }}</td>
+                <td>{{ fixed(r.periapsis, 1) }}</td>
+                <td>{{ fixed(r.apoapsis, 1) }}</td>
+                <td>{{ fixed(r.incl, 2) }}</td>
+                <td>{{ fixed(r.ecc, 5) }}</td>
+                <td>{{ fixed(r.period, 3) }}</td>
                 <td style="font-family:monospace;font-size:0.8rem;">{{ (r.tle_hash || "").slice(0, 12) }}</td>
               </tr>
               <tr class="detail-row" :style="{ display: expanded[recordId(r)] ? 'table-row' : 'none' }">
                 <td colspan="12">
                   <div class="detail-grid">
                     <DetailItem label="接收时间" :value="(r.timestamp || '').slice(0, 19)" />
-                    <DetailItem label="升交点赤经 (°)" :value="r.RA_OF_ASC_NODE?.toFixed(4) ?? '-'" />
-                    <DetailItem label="近地点辐角 (°)" :value="r.ARG_OF_PERICENTER?.toFixed(4) ?? '-'" />
+                    <DetailItem label="升交点赤经 (°)" :value="fixed(r.RA_OF_ASC_NODE, 4)" />
+                    <DetailItem label="近地点辐角 (°)" :value="fixed(r.ARG_OF_PERICENTER, 4)" />
                     <DetailItem label="国际编号" :value="r.intl_id || '-'" />
-                    <DetailItem label="平近点角 (°)" :value="r.MEAN_ANOMALY?.toFixed(4) ?? '-'" />
-                    <DetailItem label="平运动 (圈/天)" :value="r.MEAN_MOTION?.toFixed(6) ?? '-'" />
-                    <DetailItem label="B* 阻力系数" :value="r.bstar != null ? r.bstar.toExponential(4) : '-'" />
-                    <DetailItem label="平运动一阶导" :value="r.MEAN_MOTION_DOT != null ? r.MEAN_MOTION_DOT.toExponential(4) : '-'" />
+                    <DetailItem label="平近点角 (°)" :value="fixed(r.MEAN_ANOMALY, 4)" />
+                    <DetailItem label="平运动 (圈/天)" :value="fixed(r.MEAN_MOTION, 6)" />
+                    <DetailItem label="B* 阻力系数" :value="expo(r.bstar, 4)" />
+                    <DetailItem label="平运动一阶导" :value="expo(r.MEAN_MOTION_DOT, 4)" />
                     <DetailItem label="历元时圈数" :value="String(r.REV_AT_EPOCH ?? '-')" />
                     <DetailItem label="保密等级" :value="classificationLabel(r.CLASSIFICATION_TYPE)" />
                     <DetailItem label="TLE 行1" :value="r.tle1 || '-'" wide />
@@ -93,6 +93,7 @@ import DetailItem from "../components/DetailItem.vue"
 import TrendChart from "../components/TrendChart.vue"
 import { useWebSocket } from "../composables/useWebSocket"
 import { fetchHistory } from "../api"
+import { fixed, expo } from "../utils/format"
 
 const { historyRecords: wsRecords } = useWebSocket()
 // 页面用本地 ref，方便 REST API 覆盖更多数据

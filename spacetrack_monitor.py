@@ -115,7 +115,7 @@ def _data_path(filename: str) -> str:
     os.makedirs(os.path.dirname(path), exist_ok=True)
     return path
 
-DATA_FILE: str = _data_path(_cfg.get("files", {}).get("data_file", "tle_data.jsonl"))    # 轨道数据文件（带轮转保护）
+DATA_FILE: str = _data_path(_cfg.get("files", {}).get("data_file", "tle_data.jsonl"))    # 核心轨道历史，只追加不轮转
 CACHE_FILE: str = _data_path(_cfg.get("files", {}).get("cache",    "tle_cache.json"))   # 临时缓存，自动覆盖
 LOG_FILE: str = _data_path(_cfg.get("files", {}).get("run_log",  "tle_log.jsonl"))  # 运行日志（带轮转保护）
 REENTRY_WARNING_KM: int  = _cfg.get("alerts", {}).get("reentry_warning_km",   200)  # 近地点低于此值时发出再入预警
@@ -859,10 +859,14 @@ def print_orbit(orbit: dict, prev: dict | None) -> None:
 
 
 def log_record(orbit: dict, change_type: str = "unknown", source: str = "spacetrack") -> None:
-    """将轨道数据写入 DATA_FILE（核心业务数据）"""
+    """将轨道数据写入 DATA_FILE（核心业务数据）
+
+    注意：核心轨道历史不做轮转。轮转会静默丢弃机动/衰减历史，
+    而这些正是本项目的核心价值。文件体积增长由 SQLite 迁移等
+    后续方案处理，而非按大小截断。
+    """
     if not DATA_FILE:
         return
-    rotate_file_if_needed(DATA_FILE)
     entry = {
         "timestamp": datetime.now(UTC).isoformat(),
         "change_type": change_type,  # 变化类型：initial/correction/maneuver
